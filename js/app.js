@@ -69,15 +69,15 @@ function keepFinishedMeal(s) {
 const joinUrl = (code) => `${location.origin}${location.pathname}?s=${code}`;
 const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
-function settingsSheet({ welcome = false } = {}) {
+function settingsSheet() {
   const me = store.me;
   const field = (id, label, value, attrs = '') => `
     <div><label for="${id}" class="${cls.label}">${label}</label>
     <input id="${id}" value="${esc(value)}" class="${cls.input}" ${attrs}></div>`;
   const { el, close } = sheet({
-    title: welcome ? 'Welcome to Split' : 'Settings',
-    subtitle: welcome ? 'Tell your friends who you are' : 'Saved on this phone',
-    icon: welcome ? 'fa-hand-wave' : 'fa-gear',
+    title: 'Settings',
+    subtitle: 'Saved on this phone',
+    icon: 'fa-gear',
     body: `
       <form data-submit="save" class="flex flex-col gap-2.5">
         ${field('setName', 'Your name', me.name, 'required maxlength="24" autocomplete="given-name" placeholder="e.g. Alex"')}
@@ -87,7 +87,6 @@ function settingsSheet({ welcome = false } = {}) {
           ${field('setPaypal', 'PayPal.me name', me.pay?.paypal, 'placeholder="yourname"')}
           ${field('setVenmo', 'Venmo name', me.pay?.venmo, 'placeholder="your-name"')}
         </div>
-        ${welcome ? '' : `
         <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 pt-1">AI (reads menus and receipts)</p>
         ${field('setKey', 'Gemini API key', getApiKey(), 'type="password" autocomplete="off" placeholder="From aistudio.google.com"')}
         <p class="text-[9px] text-gray-500 leading-snug">${demoMode()
@@ -95,7 +94,6 @@ function settingsSheet({ welcome = false } = {}) {
           : usingServerKey()
             ? '<b>Gemini is on</b> with the app\'s built-in key. Leave this blank to keep using it.'
             : '<b>Gemini is on.</b> The key stays on this phone and is only sent to Google.'}</p>
-        `}
         <p class="text-[9px] text-gray-500 leading-snug"><b>Sync:</b> ${store.synced
           ? 'phones in your group update live.'
           : 'this device only. Add a Firebase config in js/config.js to sync phones (see TEAM.md).'}</p>
@@ -103,24 +101,75 @@ function settingsSheet({ welcome = false } = {}) {
           <b><i class="fa-solid fa-mobile-screen"></i> Put Split on your home screen</b><br>
           iPhone (Safari): Share <i class="fa-solid fa-arrow-up-from-bracket"></i>, then <b>Add to Home Screen</b>.<br>
           Android (Chrome): <b>⋮</b>, then <b>Install app</b>.</div>`}
-        <button class="${cls.btn}"><i class="fa-solid fa-check"></i> ${welcome ? "Let's eat" : 'Save'}</button>
+        <button class="${cls.btn}"><i class="fa-solid fa-check"></i> Save</button>
       </form>`,
   });
   delegate(el, {
     save: async () => {
       const name = $('#setName', el).value.trim();
       if (!name) return;
-      // The key field is only in Settings (gear icon), not in the first-run welcome sheet.
-      if ($('#setKey', el)) setApiKey($('#setKey', el).value);
-      // Ask for the camera now, so the scanner can open straight onto the live view later.
-      if (welcome) askCameraOnce();
+      setApiKey($('#setKey', el).value);
       close();
       await store.saveMe({ name, pay: { email: $('#setEmail', el).value.trim(), paypal: $('#setPaypal', el).value.trim(), venmo: $('#setVenmo', el).value.trim() } });
       toast('Saved', demoMode() ? 'Demo mode until you add an API key.' : 'Gemini is ready to read photos.');
       render();
     },
   });
-  if (welcome) $('#setName', el).focus();
+}
+
+// First run: a full-screen sign-in (no password). Your name is what friends see in the group,
+// and the e-Transfer email is where they send your share.
+function welcomeScreen() {
+  const me = store.me;
+  const input = (id, icon, label, value, attrs) => `
+    <label for="${id}" class="block">
+      <span class="block text-xs font-bold text-gray-500 mb-1.5">${label}</span>
+      <span class="relative block">
+        <i class="fa-solid ${icon} absolute left-4 top-1/2 -translate-y-1/2 text-terracotta-400"></i>
+        <input id="${id}" value="${esc(value)}" required ${attrs}
+          class="w-full bg-gray-50 border-2 border-gray-200 rounded-2xl py-3.5 pl-11 pr-4 text-base font-semibold text-espresso placeholder:text-gray-300 placeholder:font-medium focus:outline-none focus:border-terracotta-400 focus:bg-white transition-all">
+      </span>
+    </label>`;
+  const wrap = document.createElement('div');
+  wrap.className = 'absolute inset-0 z-[70] bg-creamBg flex flex-col overflow-y-auto no-scrollbar animate-fade-in';
+  wrap.setAttribute('role', 'dialog');
+  wrap.setAttribute('aria-modal', 'true');
+  wrap.setAttribute('aria-label', 'Sign in to Split');
+  wrap.innerHTML = `
+    <div class="relative shrink-0 min-h-[38%] bg-gradient-to-br from-terracotta-600 via-amberWarm-600 to-terracotta-700 text-white flex flex-col items-center justify-center gap-3 px-6 pt-10 pb-14 safe-top overflow-hidden">
+      <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop&q=80" class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay" alt="">
+      <div class="relative w-16 h-16 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg">
+        <i class="fa-solid fa-utensils text-2xl"></i>
+      </div>
+      <h1 class="relative font-display font-extrabold text-4xl tracking-tight drop-shadow-xs">Split</h1>
+      <p class="relative text-sm font-semibold text-amber-100 text-center">Plan the order. Split the bill fairly.</p>
+    </div>
+    <form class="relative -mt-8 flex-1 bg-white rounded-t-[32px] px-6 pt-7 pb-6 flex flex-col gap-5 safe-bottom shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+      <div>
+        <h2 class="font-display font-extrabold text-2xl text-espresso">Sign in</h2>
+        <p class="text-sm text-gray-500 mt-1 leading-snug">No password needed. Your friends see your name and send your share to your e-Transfer email.</p>
+      </div>
+      ${input('welcomeName', 'fa-user', 'Your name', me.name, 'maxlength="24" autocomplete="given-name" autocapitalize="words" placeholder="e.g. Alex"')}
+      ${input('welcomeEmail', 'fa-envelope', 'Interac e-Transfer email', me.pay?.email, 'type="email" autocomplete="email" inputmode="email" placeholder="you@email.com"')}
+      <button class="mt-1 w-full py-4 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-base shadow-md active:scale-98 transition-all flex items-center justify-center gap-2">
+        Continue <i class="fa-solid fa-arrow-right"></i>
+      </button>
+      <p class="mt-auto text-xs text-gray-400 text-center"><i class="fa-solid fa-lock"></i> Saved only on this phone. Change it any time in Settings.</p>
+    </form>`;
+  $('#sheetRoot').appendChild(wrap);
+  $('form', wrap).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('#welcomeName', wrap).value.trim();
+    const email = $('#welcomeEmail', wrap).value.trim();
+    if (!name || !email) return;
+    // Ask for the camera now, so the scanner can open straight onto the live view later.
+    askCameraOnce();
+    wrap.remove();
+    await store.saveMe({ name, pay: { email } });
+    toast(`Welcome, ${name}!`, 'Start a group or scan a menu.', 'ok');
+    render();
+  });
+  $('#welcomeName', wrap).focus();
 }
 
 async function peopleSheet() {
@@ -220,7 +269,7 @@ async function boot() {
     toast("Couldn't start", e.message, 'warn');
   }
   show(current());
-  if (!store.me.name) settingsSheet({ welcome: true });
+  if (!store.me.name) welcomeScreen();
 
   // Offline copy for phones. Skipped on localhost so code changes show up on reload while you work.
   if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {
