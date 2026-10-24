@@ -30,7 +30,8 @@ Repo **Settings → Pages → Build and deployment**: Source **Deploy from a bra
 
 - **Demo mode:** with no API key, scanning and restaurant search use built-in sample data (`js/fixtures/`), so the whole app can be shown without any setup.
 - **Real AI (local):** put `GEMINI_API_KEY=...` in a `.env` file in the repo root and run `npm start`. The dev server sends AI calls to Gemini with that key, so it never reaches the browser. `.env` is gitignored; never commit a key to this repo.
-- **Real AI (GitHub Pages):** there's no server there, so open **Settings** (gear icon) and paste a Gemini API key (from aistudio.google.com). Only the phone doing the scanning needs it. The key stays on that phone. A key in Settings also overrides `.env`.
+- **Real AI (GitHub Pages):** GitHub Pages can't hold a secret, so a free Cloudflare Worker does: follow the steps at the top of `cloudflare-worker.js`, then put the Worker's URL in `AI_PROXY` in `js/config.js`. Everyone who opens the link gets real AI without seeing the key.
+- **Your own key:** open **Settings** (gear icon) and paste a Gemini API key (from aistudio.google.com). It stays on that phone and overrides `.env` and the Worker.
 - **Phones syncing live:** add a free Firebase Realtime Database config to `js/config.js` (steps in [TEAM.md](TEAM.md), Person 4). Until then, Split syncs between tabs on the same device only.
 
 ## Run it on your laptop

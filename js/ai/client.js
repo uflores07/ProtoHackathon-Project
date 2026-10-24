@@ -1,18 +1,23 @@
-// Talks to Google Gemini. Two ways to get a key:
-// - Running locally with `npm start`: server.js holds the key from .env and passes calls through,
-//   so the key never reaches the browser.
-// - GitHub Pages (no server): the key saved in Settings goes straight from the phone to Google.
+// Talks to Google Gemini. Three ways to get a key, so it never has to sit in the repo:
+// - Running locally with `npm start`: server.js holds the key from .env and passes calls through.
+// - GitHub Pages: the Cloudflare Worker in AI_PROXY (js/config.js) holds the key and does the same.
+//   In both cases the key never reaches the browser.
+// - A key saved in Settings goes straight from the phone to Google, and wins over both.
 //   shortcut: that key sits in the phone's localStorage, fine for a hackathon demo but not for a public app.
-// A key in Settings wins over .env. With neither, every AI call returns the sample data in js/fixtures (demo mode).
-import { MODEL } from '../config.js';
+// With none of these, every AI call returns the sample data in js/fixtures (demo mode).
+import { AI_PROXY, MODEL } from '../config.js';
 
 const ENDPOINT = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-const PROXY = (model) => `api/gemini/${encodeURIComponent(model)}`;
 // Its own storage slot, so a key saved for another AI service is never sent to Google.
 const KEY = 'split.geminiKey';
 
-// Asked once at startup; a 404 (GitHub Pages, or no key in .env) means no server key.
-const serverKey = await fetch('api/gemini', { cache: 'no-store' }).then((r) => r.ok, () => false);
+// Asked once at startup: the local dev server first, then the Worker. A 404 (GitHub Pages,
+// no key in .env, or no secret on the Worker) means that one has no key.
+const ready = (base) => fetch(`${base}api/gemini`, { cache: 'no-store' }).then((r) => r.ok, () => false);
+const proxyBase = (await ready('')) ? ''
+  : AI_PROXY && (await ready(AI_PROXY.replace(/\/?$/, '/'))) ? AI_PROXY.replace(/\/?$/, '/') : null;
+const serverKey = proxyBase !== null;
+const PROXY = (model) => `${proxyBase}api/gemini/${encodeURIComponent(model)}`;
 
 export const getApiKey = () => localStorage.getItem(KEY) || '';
 export const setApiKey = (k) => (k?.trim() ? localStorage.setItem(KEY, k.trim()) : localStorage.removeItem(KEY));
@@ -27,7 +32,7 @@ export const imageBlock = ({ base64, mediaType }) => ({ inlineData: { mimeType: 
 
 function friendly(status, message) {
   const m = String(message || '');
-  const where = usingServerKey() ? 'GEMINI_API_KEY in .env' : 'it in Settings';
+  const where = usingServerKey() ? (proxyBase ? 'the GEMINI_API_KEY secret on the Cloudflare Worker' : 'GEMINI_API_KEY in .env') : 'it in Settings';
   if (status === 400 && /api key|api_key|credential/i.test(m)) return new Error(`Your API key was rejected. Check ${where}.`);
   if (status === 401) return new Error(`Your API key was rejected. Check ${where}.`);
   if (status === 403) return new Error('This API key is not allowed to use Gemini. Check it in Google AI Studio.');
