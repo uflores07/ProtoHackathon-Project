@@ -92,7 +92,7 @@ function settingsSheet({ welcome = false } = {}) {
         <p class="text-[9px] text-gray-500 leading-snug">${demoMode()
           ? '<b>Demo mode:</b> no key yet, so scans and searches use sample data. Only the person scanning needs a key.'
           : usingServerKey()
-            ? '<b>Gemini is on</b> with the key from .env on the dev server. Leave this blank to keep using it.'
+            ? '<b>Gemini is on</b> with the app\'s built-in key. Leave this blank to keep using it.'
             : '<b>Gemini is on.</b> The key stays on this phone and is only sent to Google.'}</p>
         `}
         <p class="text-[9px] text-gray-500 leading-snug"><b>Sync:</b> ${store.synced

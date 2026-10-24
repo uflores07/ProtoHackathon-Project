@@ -6,3 +6,8 @@ export const FIREBASE_CONFIG = null;
 // The Gemini model used for receipt/menu reading and restaurant search.
 // See https://ai.google.dev/gemini-api/docs/models for the current list.
 export const MODEL = 'gemini-3.8-flash';
+
+// The Cloudflare Worker that holds the Gemini key for the GitHub Pages app (see cloudflare-worker.js),
+// e.g. 'https://split-ai.yourname.workers.dev'. Safe to commit: it's a URL, not the key.
+// While this is null, the hosted app needs a key in Settings (or runs in demo mode).
+export const AI_PROXY = 'https://split-ai.jackluk518.workers.dev';
