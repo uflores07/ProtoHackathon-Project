@@ -29,13 +29,14 @@ Repo **Settings → Pages → Build and deployment**: Source **Deploy from a bra
 ## AI and sync
 
 - **Demo mode:** with no API key, scanning and restaurant search use built-in sample data (`js/fixtures/`), so the whole app can be shown without any setup.
-- **Real AI:** in the app, open **Settings** (gear icon) and paste a Gemini API key (from aistudio.google.com). Only the phone doing the scanning needs it. The key stays on that phone. Never commit a key to this repo.
+- **Real AI (local):** put `GEMINI_API_KEY=...` in a `.env` file in the repo root and run `npm start`. The dev server sends AI calls to Gemini with that key, so it never reaches the browser. `.env` is gitignored; never commit a key to this repo.
+- **Real AI (GitHub Pages):** there's no server there, so open **Settings** (gear icon) and paste a Gemini API key (from aistudio.google.com). Only the phone doing the scanning needs it. The key stays on that phone. A key in Settings also overrides `.env`.
 - **Phones syncing live:** add a free Firebase Realtime Database config to `js/config.js` (steps in [TEAM.md](TEAM.md), Person 4). Until then, Split syncs between tabs on the same device only.
 
 ## Run it on your laptop
 
 ```bash
-npm start            # serves the folder at http://localhost:8080 (needs Python 3)
+npm start            # serves the app at http://localhost:8080 (needs Node 20.12+)
 npm test             # runs the logic tests (needs Node 18+)
 ```
 

@@ -1,6 +1,6 @@
 // Starts the app: joins or creates a group, wires the header and nav, and shows the
 // current tab. Each tab is its own module in js/screens/ exporting mount(root) and render(root, state).
-import { demoMode, getApiKey, setApiKey } from './ai/client.js';
+import { demoMode, getApiKey, setApiKey, usingServerKey } from './ai/client.js';
 import { hasMeal, saveMeal, wasDeleted } from './history.js';
 import { current, go, onTab, TABS } from './router.js';
 import { openScanner } from './scanner.js';
@@ -91,7 +91,9 @@ function settingsSheet({ welcome = false } = {}) {
         ${field('setKey', 'Gemini API key', getApiKey(), 'type="password" autocomplete="off" placeholder="From aistudio.google.com"')}
         <p class="text-[9px] text-gray-500 leading-snug">${demoMode()
           ? '<b>Demo mode:</b> no key yet, so scans and searches use sample data. Only the person scanning needs a key.'
-          : '<b>Gemini is on.</b> The key stays on this phone and is only sent to Google.'}</p>
+          : usingServerKey()
+            ? '<b>Gemini is on</b> with the key from .env on the dev server. Leave this blank to keep using it.'
+            : '<b>Gemini is on.</b> The key stays on this phone and is only sent to Google.'}</p>
         `}
         <p class="text-[9px] text-gray-500 leading-snug"><b>Sync:</b> ${store.synced
           ? 'phones in your group update live.'
