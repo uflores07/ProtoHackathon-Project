@@ -37,6 +37,26 @@ async function getTransport() {
   return (transport = local);
 }
 
+// Runs fn with the current transport. If Firebase fails (e.g. the database rules say
+// PERMISSION_DENIED, or it can't be reached), switches to this device only and tries again,
+// so the app still opens instead of showing "Couldn't start".
+async function withFallback(fn) {
+  const t = await getTransport();
+  if (t === local) return fn(local);
+  try {
+    return await Promise.race([
+      fn(t),
+      new Promise((_, fail) => setTimeout(() => fail(new Error('Firebase took too long to answer')), 8000)),
+    ]);
+  } catch (e) {
+    console.error('Firebase failed, using this device only', e);
+    toast('Sync is off', `Firebase: ${e.message}. Using this device only.`, 'warn');
+    t.close();
+    transport = local;
+    return fn(local);
+  }
+}
+
 // Session codes skip look-alike characters (0/O, 1/I/L) so they're easy to read out.
 const newCode = () => {
   const a = new Uint8Array(5);
@@ -58,11 +78,12 @@ export const store = {
 
   // Join an existing session. Resolves false if the code doesn't exist.
   async open(c) {
-    const t = await getTransport();
-    t.close();
-    const found = await t.connect(c, (s) => {
-      state = normalize(s);
-      listeners.forEach((fn) => fn(state));
+    const found = await withFallback((t) => {
+      t.close();
+      return t.connect(c, (s) => {
+        state = normalize(s);
+        listeners.forEach((fn) => fn(state));
+      });
     });
     if (!found) return false;
     code = c;
@@ -72,9 +93,8 @@ export const store = {
   },
 
   async create() {
-    const t = await getTransport();
     const c = newCode();
-    await t.create(c, initialState(c, Date.now()));
+    await withFallback((t) => t.create(c, initialState(c, Date.now())));
     await store.open(c);
     return c;
   },
