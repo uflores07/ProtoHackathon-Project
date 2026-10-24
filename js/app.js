@@ -86,11 +86,13 @@ function settingsSheet({ welcome = false } = {}) {
           ${field('setPaypal', 'PayPal.me name', me.pay?.paypal, 'placeholder="yourname"')}
           ${field('setVenmo', 'Venmo name', me.pay?.venmo, 'placeholder="your-name"')}
         </div>
+        ${welcome ? '' : `
         <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 pt-1">AI (reads menus and receipts)</p>
         ${field('setKey', 'Gemini API key', getApiKey(), 'type="password" autocomplete="off" placeholder="From aistudio.google.com"')}
         <p class="text-[9px] text-gray-500 leading-snug">${demoMode()
           ? '<b>Demo mode:</b> no key yet, so scans and searches use sample data. Only the person scanning needs a key.'
           : '<b>Gemini is on.</b> The key stays on this phone and is only sent to Google.'}</p>
+        `}
         <p class="text-[9px] text-gray-500 leading-snug"><b>Sync:</b> ${store.synced
           ? 'phones in your group update live.'
           : 'this device only. Add a Firebase config in js/config.js to sync phones (see TEAM.md).'}</p>
@@ -105,7 +107,8 @@ function settingsSheet({ welcome = false } = {}) {
     save: async () => {
       const name = $('#setName', el).value.trim();
       if (!name) return;
-      setApiKey($('#setKey', el).value);
+      // The key field is only in Settings (gear icon), not in the first-run welcome sheet.
+      if ($('#setKey', el)) setApiKey($('#setKey', el).value);
       close();
       await store.saveMe({ name, pay: { email: $('#setEmail', el).value.trim(), paypal: $('#setPaypal', el).value.trim(), venmo: $('#setVenmo', el).value.trim() } });
       toast('Saved', demoMode() ? 'Demo mode until you add an API key.' : 'Gemini is ready to read photos.');
