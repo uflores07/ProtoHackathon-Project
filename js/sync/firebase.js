@@ -31,6 +31,8 @@ export async function connect(code, onState) {
   close();
   const snap = await api.get(node(code));
   if (!snap.exists()) return false;
+  // Hand over what we just downloaded, so the caller has the state before onValue's first callback.
+  onState(snap.val());
   unsubscribe = api.onValue(node(code), (s) => { if (s.exists()) onState(s.val()); });
   return true;
 }

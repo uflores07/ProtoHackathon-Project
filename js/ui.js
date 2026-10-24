@@ -103,10 +103,10 @@ export function sheet({ title, subtitle = '', icon = 'fa-circle-info', body, onC
 
 // Shared look for cards, buttons and inputs, copied from the prototype.
 export const cls = {
-  card: 'bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3',
-  title: 'font-display font-bold text-xs text-espresso',
-  sub: 'text-[9px] text-gray-400',
-  label: 'block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5',
+  card: 'bg-white rounded-3xl p-4 border border-orange-100 shadow-sm flex flex-col gap-3',
+  title: 'font-display font-extrabold text-[15.5px] leading-snug text-espresso',
+  sub: 'text-[12px] leading-snug text-gray-500',
+  label: 'block text-[11.5px] font-extrabold uppercase tracking-wider text-terracotta-700 mb-1',
   input: 'w-full bg-gray-50 border border-gray-200 rounded-xl p-2 text-xs font-semibold text-espresso focus:outline-none focus:border-terracotta-300',
   btn: 'w-full py-2.5 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-xs shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50',
   btnGhost: 'w-full py-2 rounded-2xl bg-gray-100 hover:bg-gray-200 text-espresso font-bold text-xs active:scale-98 transition-all flex items-center justify-center gap-1.5',
@@ -116,4 +116,4 @@ export const cls = {
 };
 
 // A "demo data" badge for anything that came from js/fixtures instead of the AI.
-export const demoBadge = (on) => (on ? `<span class="${cls.pill} bg-sky-100 text-sky-700" title="No API key set, so this is sample data">Demo data</span>` : '');
+export const demoBadge = (on) => (on ? `<span class="${cls.pill} bg-gray-100 text-gray-700" title="Sample data, not from a real scan">Demo data</span>` : '');

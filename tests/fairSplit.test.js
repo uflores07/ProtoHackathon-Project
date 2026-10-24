@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RECEIPT } from '../js/fixtures/receipt.js';
-import { allocate, budgetCheck, computeShares, explainShare, nameScore, prefillClaims, tipAmount } from '../js/lib/fairSplit.js';
+import { allocate, budgetCheck, computeShares, explainShare, explainTip, nameScore, prefillClaims, tipAmount } from '../js/lib/fairSplit.js';
 
 const receipt = (items, extra = {}) => ({
   items: items.map(([name, price], i) => ({ id: `r${i + 1}`, name, qty: 1, price })),
@@ -158,6 +158,15 @@ test('a printed tip wins over the percentage', () => {
   assert.equal(tipAmount(receipt([['A', 50]], { tip: 7.25, tipPct: 20 })), 725);
   assert.equal(tipAmount(receipt([['A', 50]], { tipPct: 15 })), 750);
   assert.equal(tipAmount(receipt([['A', 50]], { tip: 0, tipPct: 0 })), 0);
+});
+
+test('the tip line says the amount and how it was worked out', () => {
+  assert.equal(explainTip(receipt([['A', 74]], { tipPct: 18 })), 'Tip $13.32 (18% of $74.00 food)');
+  assert.equal(explainTip(receipt([['A', 40], ['Coupon', -10]], { tipPct: 12.5 })), 'Tip $5.00 (12.5% of $40.00 food)');
+  assert.equal(explainTip(receipt([['A', 74]], { tip: 12, tipPct: 18 })), 'Tip $12.00 (16.2% of the food)');
+  assert.equal(explainTip(receipt([], { tip: 5 })), 'Tip $5.00');
+  assert.equal(explainTip(receipt([['A', 74]], { tip: 0, tipPct: 0 })), 'No tip');
+  assert.equal(explainTip(receipt([], { tipPct: 18 })), 'No tip');
 });
 
 test('the tip is on the full-price food: no discount of either kind lowers it', () => {

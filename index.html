@@ -16,6 +16,8 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 
+  <!-- Dark mode before the first paint, so the page doesn't flash white (js/theme.js keeps it in step) -->
+  <script>try { var t = localStorage.getItem('split.theme') || 'system'; if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark'); } catch (e) {}</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="js/tailwind-config.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">

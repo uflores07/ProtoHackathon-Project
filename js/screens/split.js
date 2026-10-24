@@ -2,14 +2,16 @@
 // service charges and discounts follow each dish. Or split evenly: the whole bill divided by the group. Then the payer collects by e-Transfer, PayPal or Venmo.
 // The maths is in js/lib/fairSplit.js (cents in, cents out); this file only draws it.
 import { listMeals, updateMeal } from '../history.js';
-import { budgetCheck, computeShares, explainShare, prefillClaims } from '../lib/fairSplit.js';
+import { budgetCheck, computeShares, explainShare, explainTip, prefillClaims } from '../lib/fairSplit.js';
 import { paypalLink, requestAllText, requestText, venmoLink } from '../lib/payLinks.js';
 import { go } from '../router.js';
 import { onScanned, openScanner } from '../scanner.js';
 import { store } from '../store.js';
 import { cls, color, delegate, demoBadge, esc, initials, money, patch, sheet, toast, uid } from '../ui.js';
 
-const TIPS = [0, 15, 18, 20];
+const TIPS = [10, 15, 18, 20, 25];
+// How this phone enters the tip: 'pct' or 'amount'. A fixed $ tip on the receipt always shows as 'amount'.
+let tipMode = 'pct';
 const $c = (c) => money(c / 100);
 const toDollars = (c) => Math.round(c) / 100;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -42,6 +44,7 @@ export function mount(root) {
         ...r,
         evenSplit: !!opts.even,
         payerId: store.me.id,
+        printedTip: r.tip, // so the tip card can say a tip came from the receipt
         // A service charge is already the tip, so nobody double-tips by default.
         tipPct: r.serviceCharge > 0 ? 0 : s.plan.settings.tipPct,
         claims: prefillClaims(r.items, Object.values(s.live.items)),
@@ -67,11 +70,29 @@ export function mount(root) {
     addItem: () => itemSheet(null),
     editBill: () => billSheet(),
     dismissNotes: () => store.dispatch({ type: 'receipt/update', patch: { warnings: [], notes: '' } }),
+    // Percent drops a fixed $ tip and goes back to tipPct. Dollar starts from the tip there is now.
+    tipMode: (b) => {
+      tipMode = b.dataset.mode;
+      if (tipMode === 'pct' && store.state?.receipt?.tip > 0) store.dispatch({ type: 'receipt/update', patch: { tip: 0 } });
+      else if (store.state) render(root, store.state);
+    },
     tipPct: (b) => store.dispatch({ type: 'receipt/update', patch: { tipPct: Number(b.dataset.pct), tip: 0 } }),
-    tipCustom: (input) => {
+    tipPctCustom: (input) => {
+      const pct = parseMoney(input.value);
+      if (pct === null || pct < 0 || pct > 100) {
+        input.value = input.defaultValue;
+        return toast('Check the tip', 'Use a percent from 0 to 100, like 12.5.', 'warn');
+      }
+      store.dispatch({ type: 'receipt/update', patch: { tipPct: pct, tip: 0 } });
+    },
+    tipAmount: (input) => {
       const tip = parseMoney(input.value);
-      // $0 means no tip at all; an emptied box goes back to the % buttons.
-      store.dispatch({ type: 'receipt/update', patch: tip !== null && tip <= 0 ? { tip: 0, tipPct: 0 } : { tip: tip ?? 0 } });
+      if (tip === null || tip < 0) {
+        input.value = input.defaultValue;
+        return toast('Check the tip', 'Type an amount like 12.50, or 0 for no tip.', 'warn');
+      }
+      // $0 means no tip at all.
+      store.dispatch({ type: 'receipt/update', patch: tip === 0 ? { tip: 0, tipPct: 0 } : { tip } });
     },
     payer: (b) => store.dispatch({ type: 'receipt/update', patch: { payerId: b.dataset.id } }),
     request: (b) => requestPay(b.dataset.id),
@@ -168,6 +189,8 @@ function receiptCard(s, split) {
   const even = !!r.evenSplit;
   const amIn = !even && !!s.members[store.me.id];
   const open = even ? 0 : split.unclaimed.filter((u) => u.itemId).length;
+  const listed = r.items.filter((it) => !it.unitemized);
+  const loose = r.items.filter((it) => it.unitemized);
   return `
     <div class="${cls.card}">
       <div class="flex items-start justify-between gap-2">
@@ -183,13 +206,29 @@ function receiptCard(s, split) {
       ${modeSwitch(r)}
       ${even ? evenSummary(s, split) : ''}
       ${notesBox(r)}
-      <div class="flex flex-col gap-1.5">
-        ${r.items.map((it) => itemRow(s, it, amIn, even)).join('') || '<p class="text-[10px] text-gray-400 text-center py-2">No items yet. Add what was on the bill.</p>'}
-      </div>
+      ${listed.length || !loose.length ? `<div class="flex flex-col gap-1.5">
+        ${listed.map((it) => itemRow(s, it, amIn, even)).join('') || '<p class="text-[10px] text-gray-400 text-center py-2">No items yet. Add what was on the bill.</p>'}
+      </div>` : ''}
+      ${loose.length ? unitemizedList(s, loose, amIn, even, !listed.length) : ''}
       <button data-click="addItem" class="${cls.btnGhost}"><i class="fa-solid fa-plus"></i> Add an item</button>
       ${open ? `<div class="p-2.5 rounded-2xl bg-amberWarm-100 text-amberWarm-800 text-[10px] font-bold flex items-center gap-2" role="status">
           <i class="fa-solid fa-hand-pointer"></i> ${plural(open, 'item')} still unclaimed. Tap Mine or Split on each one.</div>`
         : r.items.length && !even ? `<div class="p-2.5 rounded-2xl bg-sage-50 text-sage-800 text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-circle-check text-sage-500"></i> Every item has an owner.</div>` : ''}
+    </div>`;
+}
+
+// Money the receipt didn't break into items (a card slip, a cut-off photo), under its own heading.
+// The rows are ordinary items: claimed, split, edited and removed the same way.
+function unitemizedList(s, items, amIn, even, onlyThis) {
+  return `
+    <div class="flex flex-col gap-1.5">
+      <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-circle-question"></i> Not itemized</span>
+      <p class="text-[10px] text-gray-500 leading-snug">The receipt didn't say what this was for.${even ? '' : ' Claim it together, or add the missing items and lower this.'}</p>
+      ${items.map((it) => itemRow(s, it, amIn, even)).join('')}
+      ${onlyThis && !even ? `<div class="p-2.5 rounded-2xl bg-sky-50 text-sky-800 text-[10px] font-semibold leading-snug flex items-center gap-2">
+          <span class="flex-1">Only a total on this receipt? Splitting it evenly is quickest.</span>
+          <button data-click="evenMode" data-on="1" class="${smallBtn} bg-white border border-gray-200 text-espresso shrink-0"><i class="fa-solid fa-equals"></i> Split evenly</button>
+        </div>` : ''}
     </div>`;
 }
 
@@ -208,11 +247,13 @@ function notesBox(r) {
     </div>`;
 }
 
+const looseIcon = '<i class="fa-solid fa-circle-question text-sky-600" aria-hidden="true"></i>';
+
 function itemRow(s, it, amIn, even = false) {
   if (even) {
     return `
     <button data-click="editItem" data-id="${esc(it.id)}" class="p-2 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between gap-2 text-xs text-left" aria-label="Edit ${esc(it.name)}">
-      <span class="font-bold text-espresso break-words min-w-0">${esc(it.name)}${it.qty > 1 ? ` <span class="text-gray-400 font-semibold">×${esc(it.qty)}</span>` : ''}
+      <span class="font-bold text-espresso break-words min-w-0">${it.unitemized ? `${looseIcon} ` : ''}${esc(it.name)}${it.qty > 1 ? ` <span class="text-gray-400 font-semibold">×${esc(it.qty)}</span>` : ''}
         <i class="fa-solid fa-pen text-[8px] text-gray-300"></i></span>
       <span class="font-display font-bold shrink-0 ${it.price < 0 ? 'text-sage-600' : 'text-espresso'}">${money(it.price)}</span>
     </button>`;
@@ -225,6 +266,7 @@ function itemRow(s, it, amIn, even = false) {
     <div class="p-2 rounded-2xl border ${needsOwner ? 'bg-amberWarm-100/40 border-amberWarm-100' : 'bg-gray-50 border-gray-100'} flex flex-col gap-1.5 text-xs">
       <div class="flex items-start justify-between gap-2">
         <button data-click="editItem" data-id="${esc(it.id)}" class="text-left min-w-0 flex items-start gap-1.5" aria-label="Edit ${esc(it.name)}">
+          ${it.unitemized ? `<span class="mt-px">${looseIcon}</span>` : ''}
           <span class="font-bold text-espresso break-words">${esc(it.name)}${it.qty > 1 ? ` <span class="text-gray-400 font-semibold">×${esc(it.qty)}</span>` : ''}</span>
           <i class="fa-solid fa-pen text-[8px] text-gray-300 mt-1"></i>
         </button>
@@ -247,9 +289,13 @@ function itemRow(s, it, amIn, even = false) {
 
 function tipCard(s, split) {
   const r = s.receipt;
-  const custom = r.tip > 0;
+  const fixed = r.tip > 0;
+  const mode = fixed ? 'amount' : tipMode;
+  const pct = Number(r.tipPct) || 0;
+  const preset = TIPS.includes(pct);
+  const modeBtn = (m, icon, label) => `<button data-click="tipMode" data-mode="${m}" aria-pressed="${mode === m}" class="py-1.5 rounded-xl text-[10px] font-bold transition-all ${mode === m ? 'bg-white text-terracotta-600 shadow-xs' : 'text-gray-500 hover:text-espresso'}"><i class="fa-solid ${icon} mr-1"></i> ${label}</button>`;
   const tipBtn = (p) => {
-    const on = !custom && r.tipPct === p;
+    const on = !fixed && pct === p;
     return `<button data-click="tipPct" data-pct="${p}" aria-pressed="${on}" class="py-2 rounded-xl text-[10px] font-bold ${on ? 'bg-terracotta-500 text-white' : 'bg-gray-100 text-espresso'}">${p}%</button>`;
   };
   const payerBtn = (m) => {
@@ -259,17 +305,31 @@ function tipCard(s, split) {
   };
   return `
     <div class="${cls.card}">
-      <div class="flex items-center justify-between">
-        <h3 class="${cls.title}">Tip${custom ? '' : ` (${esc(r.tipPct)}%)`}</h3>
-        <span class="font-display font-bold text-xs text-espresso">${$c(split.totals.tip)}</span>
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="${cls.title} flex items-center gap-1.5"><i class="fa-solid fa-hand-holding-heart text-terracotta-500"></i> Tip</h3>
+        <span class="font-display font-extrabold text-sm text-espresso">${$c(split.totals.tip)}</span>
       </div>
+      ${fixed && Number(r.printedTip) === Number(r.tip) ? `<p class="p-2 rounded-2xl bg-sky-50 text-sky-800 text-[10px] font-semibold leading-snug"><i class="fa-solid fa-receipt"></i>
+        This tip (${money(r.tip)}) came from the receipt. Change it below if it's not right.</p>` : ''}
       ${r.serviceCharge > 0 ? `<p class="p-2 rounded-2xl bg-sky-50 text-sky-800 text-[10px] font-semibold leading-snug"><i class="fa-solid fa-circle-info"></i>
         Service charge (${money(r.serviceCharge)}) already on the bill, so no extra tip by default.</p>` : ''}
-      <div class="grid grid-cols-4 gap-1.5">${TIPS.map(tipBtn).join('')}</div>
-      <div class="flex items-center gap-2">
-        <label for="tipCustom" class="text-[10px] font-semibold text-gray-500 shrink-0">Or an amount ($)</label>
-        <input id="tipCustom" data-change="tipCustom" ${moneyAttrs} min="0" value="${custom ? esc(r.tip) : ''}" placeholder="0.00" class="${cls.input} ${custom ? 'border-terracotta-400 bg-terracotta-50' : ''}">
+      <div class="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-2xl" role="group" aria-label="Set the tip as">
+        ${modeBtn('pct', 'fa-percent', 'Percent')}${modeBtn('amount', 'fa-dollar-sign', 'Dollar amount')}
       </div>
+      ${mode === 'pct' ? `
+        <div class="grid grid-cols-5 gap-1.5">${TIPS.map(tipBtn).join('')}</div>
+        <div class="flex items-center gap-2">
+          <label for="tipPctCustom" class="text-[10px] font-semibold text-gray-500 shrink-0">Or your own %</label>
+          <input id="tipPctCustom" data-change="tipPctCustom" type="number" inputmode="decimal" step="any" min="0" max="100" value="${preset ? '' : esc(pct)}" placeholder="e.g. 12.5" class="${cls.input} ${preset ? '' : 'border-terracotta-400 bg-terracotta-50'}">
+        </div>` : `
+        <div class="flex items-center gap-2">
+          <label for="tipAmount" class="text-[10px] font-semibold text-gray-500 shrink-0">Tip in dollars</label>
+          <div class="relative flex-1 min-w-0">
+            <span class="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400" aria-hidden="true">$</span>
+            <input id="tipAmount" data-change="tipAmount" ${moneyAttrs} min="0" value="${toDollars(split.totals.tip).toFixed(2)}" placeholder="0.00" class="${cls.input} pl-5">
+          </div>
+        </div>`}
+      <p class="p-2 rounded-2xl bg-orange-50 border border-orange-100 text-xs font-bold text-espresso">${esc(explainTip(r))}</p>
       <p class="${cls.sub}">${r.evenSplit ? 'Tip is on the food before tax and discounts, split evenly with the rest of the bill.' : 'Tip is on the food before tax and discounts, and everyone tips on what they had.'}</p>
       <div class="border-t border-gray-100 pt-2.5 flex flex-col gap-1.5">
         <h3 class="${cls.title}">Who paid the bill?</h3>

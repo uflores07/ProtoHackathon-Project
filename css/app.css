@@ -33,3 +33,175 @@ body {
   border-radius: 22%;
   vertical-align: -0.25em;
 }
+
+/* ---------- Readability (sunflower theme) ----------
+   The screens were drawn with very small text. These rules raise the sizes app-wide and give headings,
+   section labels and cards a clear look. ":root .x" outranks the CDN's ".x" but still loses to the
+   "html.dark .x" rules below, so dark mode can repaint the same classes. Colours are the tokens in
+   js/tailwind-config.js (rust #A43527, dark brown #341D1C, deep sunflower #985A12). */
+
+/* Nothing under ~10px; body text at 12.5-13px */
+:root .text-\[7px\] { font-size: 9.5px; }
+:root .text-\[8px\] { font-size: 10.5px; }
+:root .text-\[9px\] { font-size: 11.5px; }
+:root .text-\[10px\] { font-size: 12.5px; }
+:root .text-\[11px\] { font-size: 13px; }
+:root .text-xs { font-size: 13px; }
+:root .text-xs:not([class*="leading-"]) { line-height: 1.125rem; }
+
+/* Headings: extra bold and clearly bigger than the body text under them */
+:root :is(h2, h3, h4).font-display:is(.text-xs, .text-sm) { font-size: 15.5px; font-weight: 800; line-height: 1.3; }
+
+/* Small grey uppercase labels become rust section labels, so each part of a card is easy to find */
+:root .uppercase:is(.text-gray-400, .text-gray-500) { color: #A43527; font-weight: 800; }
+/* Uppercase reads bigger, so 11px is plenty, and "Saved vs plan" still fits a 3-across stat tile */
+:root .uppercase.text-\[9px\] { font-size: 11px; }
+
+/* Cards: white on the cream page with a warm edge and a soft shadow, so each one stands apart */
+:root .border-orange-100 { border-color: #EEDDCB; }
+:root .bg-white.rounded-3xl.shadow-sm { box-shadow: 0 1px 2px rgb(52 29 28 / 0.05), 0 6px 18px -8px rgb(164 53 39 / 0.2); }
+
+/* White text is hard to read on the bright sunflower orange (2.4:1): badges and avatars get dark brown
+   letters instead, and buttons and gradient buttons with white labels use the deeper orange */
+:root .bg-amberWarm-500.text-white:not(button) { color: #341D1C; }
+:root button.bg-amberWarm-500.text-white { background-color: #985A12; }
+:root .text-white.to-amberWarm-500 { --tw-gradient-to: #985A12 var(--tw-gradient-to-position); }
+
+/* Small buttons keep their label on one line now the text is bigger */
+:root button:is(.text-\[9px\], .text-\[10px\]) { white-space: nowrap; }
+/* The member count badge grows with its bigger number */
+:root #memberCount { width: 1.05rem; height: 1.05rem; }
+/* Placeholders were near-invisible grey */
+:root .placeholder\:text-gray-300::placeholder { color: #8F7F74; }
+/* The food photo over the orange header and heroes is softer, so light text on it stays readable */
+:root .mix-blend-overlay { opacity: 0.1; }
+/* Light text on the orange header and hero cards: solid pale cream, and dark glass behind chips, so it stays 4.5:1 */
+:root .text-white[class*="bg-gradient-"] :is(.text-orange-100, .text-orange-100\/90) { color: #FFF4E6; }
+:root .text-white[class*="bg-gradient-"] :is(.text-amber-100, .text-amber-200) { color: #FFF0CC; }
+:root .text-white[class*="bg-gradient-"] :is(.bg-white\/15, .bg-white\/20) { background-color: rgb(52 29 28 / 0.15); }
+/* A bright sunflower edge under the header, where white text is not in the way */
+:root header.bg-gradient-to-r { border-bottom: 3px solid #F28B37; }
+
+/* ---------- Dark mode ----------
+   js/theme.js puts class "dark" on <html>. The screens use Tailwind's light utility classes, so these
+   rules repaint those classes in a sunflower-dark palette: deep brown surfaces, cream text, orange and
+   sage accents. "html.dark .x" outranks the CDN's single ".x" and the ":root .x" rules above.
+   The header, gradient hero cards, scanner and toast are already dark or colourful, so they stay. */
+html.dark { color-scheme: dark; }
+
+/* Surfaces */
+html.dark .bg-creamBg { background-color: #1B1210; }
+html.dark .ring-creamBg { --tw-ring-color: #1B1210; }
+html.dark .bg-white { background-color: #2A1D1A; }
+html.dark .bg-white\/80 { background-color: rgb(51 36 31 / 0.8); }
+html.dark .bg-white\/90 { background-color: rgb(42 29 26 / 0.9); }
+html.dark .bg-white\/95 { background-color: rgb(42 29 26 / 0.95); }
+html.dark .bg-gray-50,
+html.dark .hover\:bg-gray-50:hover { background-color: #33241F; }
+html.dark .bg-gray-100,
+html.dark .hover\:bg-gray-100:hover { background-color: #3B2A25; }
+html.dark .bg-gray-200,
+html.dark .hover\:bg-gray-200:hover { background-color: #4A362F; }
+/* Segmented controls: the picked segment sits lighter than its track, as in light mode */
+html.dark .bg-gray-100 > .bg-white { background-color: #5A443C; }
+html.dark .bg-orange-50,
+html.dark .bg-orange-50\/60,
+html.dark .bg-orange-50\/70,
+html.dark .hover\:bg-orange-50:hover,
+html.dark .hover\:bg-orange-50\/60:hover,
+html.dark .active\:bg-orange-50:active { background-color: #34221B; }
+html.dark .bg-orange-100 { background-color: #3F2920; }
+html.dark .ring-white { --tw-ring-color: #2A1D1A; }
+/* The top place card fades white -> orange in light mode */
+html.dark .from-white { --tw-gradient-from: #2A1D1A; --tw-gradient-to: rgb(42 29 26 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+html.dark .to-orange-50\/40 { --tw-gradient-to: #34221B; }
+/* Cards: a dark shadow instead of the warm glow */
+html.dark .bg-white.rounded-3xl.shadow-sm { box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.7); }
+
+/* Dark buttons and pills turn cream so they still stand out */
+html.dark .bg-espresso { background-color: #F8EEDF; color: #341D1C; }
+
+/* Tinted pills and notes: a see-through wash of their colour */
+html.dark .bg-terracotta-50 { background-color: rgb(207 95 34 / 0.13); }
+html.dark .bg-terracotta-50\/60 { background-color: rgb(207 95 34 / 0.08); }
+html.dark .bg-terracotta-100 { background-color: rgb(207 95 34 / 0.24); }
+html.dark .bg-amberWarm-100,
+html.dark .bg-amber-100 { background-color: rgb(242 139 55 / 0.2); }
+html.dark .bg-amberWarm-100\/40 { background-color: rgb(242 139 55 / 0.08); }
+html.dark .bg-sage-50 { background-color: rgb(157 187 170 / 0.1); }
+html.dark .bg-sage-100,
+html.dark .bg-emerald-100 { background-color: rgb(157 187 170 / 0.2); }
+html.dark .bg-sky-50 { background-color: rgb(14 165 233 / 0.1); }
+html.dark .bg-sky-100 { background-color: rgb(14 165 233 / 0.18); }
+html.dark .bg-blue-100 { background-color: rgb(59 130 246 / 0.2); }
+html.dark .bg-purple-100 { background-color: rgb(168 85 247 / 0.2); }
+html.dark .bg-rose-100 { background-color: rgb(244 63 94 / 0.2); }
+html.dark .bg-teal-100 { background-color: rgb(20 184 166 / 0.2); }
+html.dark .bg-indigo-100 { background-color: rgb(99 102 241 / 0.22); }
+html.dark .hover\:bg-sage-500:hover { background-color: #5E8C73; }
+
+/* Text */
+html.dark .text-espresso,
+html.dark .hover\:text-espresso:hover { color: #F8EEDF; }
+html.dark .text-gray-800 { color: #EFE3D5; }
+html.dark .text-gray-700 { color: #E0D1C2; }
+html.dark .text-gray-600 { color: #CDBDAD; }
+html.dark .text-gray-500 { color: #BCAA99; }
+html.dark .text-gray-400 { color: #A39080; }
+html.dark .text-gray-300 { color: #75625A; }
+html.dark .text-gray-200 { color: #574640; }
+html.dark .uppercase:is(.text-gray-400, .text-gray-500) { color: #F8B48A; }
+html.dark .text-terracotta-500,
+html.dark .text-terracotta-600,
+html.dark .hover\:text-terracotta-500:hover { color: #F59C63; }
+html.dark .text-terracotta-700 { color: #F8B48A; }
+html.dark .text-amberWarm-600 { color: #F6AE62; }
+html.dark .text-amberWarm-800,
+html.dark .text-amber-700,
+html.dark .text-amber-800 { color: #FAC98F; }
+html.dark .text-sage-600 { color: #A8CBB6; }
+html.dark .text-sage-800,
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 { color: #C4DECF; }
+html.dark .text-sky-600,
+html.dark .text-sky-700,
+html.dark .text-sky-800 { color: #7DD3FC; }
+html.dark .text-blue-700,
+html.dark .text-blue-800 { color: #93C5FD; }
+html.dark .text-purple-600 { color: #D8B4FE; }
+html.dark .text-rose-600 { color: #FDA4AF; }
+html.dark .text-teal-600 { color: #5EEAD4; }
+html.dark .text-indigo-600 { color: #A5B4FC; }
+html.dark .hover\:text-white:hover { color: #fff; }
+
+/* Borders */
+html.dark .border-gray-100,
+html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #3A2A25; }
+html.dark .border-gray-200,
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #47352F; }
+html.dark .border-orange-100 { border-color: #48322A; }
+html.dark .border-orange-100\/80 { border-color: rgb(72 50 42 / 0.8); }
+html.dark .border-orange-200,
+html.dark .border-orange-200\/60 { border-color: #5A3F33; }
+html.dark .border-terracotta-200 { border-color: rgb(207 95 34 / 0.4); }
+html.dark .border-amberWarm-100 { border-color: rgb(242 139 55 / 0.28); }
+html.dark .border-sage-100 { border-color: rgb(157 187 170 / 0.28); }
+
+/* Form fields: a clearer edge than cards get, and a readable placeholder */
+html.dark :is(input, select, textarea).border-gray-200 { border-color: #5C4840; }
+html.dark .focus\:border-terracotta-300:focus { border-color: #E89A6B; }
+html.dark input::placeholder,
+html.dark textarea::placeholder { color: #A08C7F; }
+
+/* These keep their light look: the QR code needs a white box to scan, and the toast and scanner are dark already */
+html.dark #qr { background-color: #fff; }
+html.dark #toast .bg-espresso { background-color: #3D2623; color: #fff; }
+html.dark #toast .text-gray-300 { color: #E0D1C2; }
+html.dark #sheetRoot > .bg-black .bg-white { background-color: #fff; }
+html.dark #sheetRoot > .bg-black .text-espresso { color: #341D1C; }
+/* Hero cards (gradient with white text) keep their white buttons */
+html.dark .text-white[class*="bg-gradient-"] .bg-white { background-color: #fff; }
+html.dark .text-white[class*="bg-gradient-"] .hover\:bg-orange-50:hover { background-color: #FFF7ED; }
+html.dark .text-white[class*="bg-gradient-"] .text-terracotta-500 { color: #B54C1B; }
+html.dark .text-white[class*="bg-gradient-"] .text-terracotta-600 { color: #AA4221; }
+html.dark .text-white[class*="bg-gradient-"] .text-gray-400 { color: #8F7F74; }

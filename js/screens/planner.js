@@ -12,6 +12,7 @@ const drafts = {}; // half-typed inputs, so a sync from another phone doesn't wi
 
 const ICON = { appetizer: 'fa-bowl-food', main: 'split-logo', side: 'fa-bread-slice', dessert: 'fa-ice-cream', drink: 'fa-glass-water', other: 'fa-plate-wheat' };
 const HUNGER_LABEL = { light: 'Light', normal: 'Normal', starving: 'Starving' };
+const TIP_CHOICES = [15, 18, 20, 25];
 const dietName = (d) => d.replace(/_/g, ' ');
 const firstName = (name) => esc((name || 'Guest').trim().split(/\s+/)[0]);
 const safeUrl = (u) => (/^https?:\/\//i.test(u || '') ? u : '');
@@ -70,7 +71,8 @@ export function mount(root) {
     tax: (el) => numberField(el, 'taxPct', 0, 30),
     mode: (el) => setSettings({ mode: el.dataset.mode }),
     hunger: (el) => setSettings({ hunger: el.value }),
-    tip: (el) => setSettings({ tipPct: Number(el.value) }),
+    tip: (el) => setSettings({ tipPct: Number(el.dataset.pct) }),
+    tipCustom: (el) => numberField(el, 'tipPct', 0, 100),
     diet: (el) => {
       const diet = store.state.plan.settings.diet;
       const d = el.dataset.diet;
@@ -176,6 +178,11 @@ function settingsCard(s) {
     .map((d) => [d, people(s).filter((m) => m.diet.includes(d)).map((m) => firstName(m.name)).join(', ')])
     .filter(([, who]) => who);
   const select = 'w-full bg-gray-50 border border-gray-200 rounded-xl p-1.5 h-8 text-[10px] font-semibold text-gray-700 focus:outline-none focus:border-terracotta-300';
+  const presetTip = TIP_CHOICES.includes(Number(st.tipPct));
+  const tipBtn = (t) => {
+    const on = Number(st.tipPct) === t;
+    return `<button data-click="tip" data-pct="${t}" aria-pressed="${on}" class="flex-1 h-8 rounded-xl text-[10px] font-bold transition-all ${on ? 'bg-terracotta-500 text-white' : 'bg-gray-100 text-gray-500 hover:text-espresso'}">${t}%</button>`;
+  };
   return `
     <div class="${cls.card}">
       <div class="grid grid-cols-2 gap-2">
@@ -202,7 +209,7 @@ function settingsCard(s) {
         ${modeBtn('family', 'fa-bowl-food', 'Family Spread')}
         ${modeBtn('individual', 'fa-user', 'Individual')}
       </div>
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-2 gap-2">
         <div>
           <label for="planHunger" class="${cls.label}">Hunger</label>
           <select id="planHunger" data-change="hunger" class="${select}">
@@ -210,14 +217,17 @@ function settingsCard(s) {
           </select>
         </div>
         <div>
-          <label for="planTip" class="${cls.label}">Tip</label>
-          <select id="planTip" data-change="tip" class="${select}">
-            ${[15, 18, 20].map((t) => `<option value="${t}" ${Number(st.tipPct) === t ? 'selected' : ''}>${t}%</option>`).join('')}
-          </select>
-        </div>
-        <div>
           <label for="planTax" class="${cls.label}">Tax %</label>
           <input id="planTax" type="number" inputmode="decimal" min="0" max="30" step="0.5" value="${esc(drafts.planTax ?? st.taxPct)}" data-change="tax" data-input="draft" class="${select}">
+        </div>
+      </div>
+      <div>
+        <span class="${cls.label}">Tip</span>
+        <div class="flex items-center gap-1.5">
+          ${TIP_CHOICES.map(tipBtn).join('')}
+          <div class="w-20 shrink-0">
+            <input id="planTip" type="number" inputmode="decimal" min="0" max="100" step="any" value="${esc(drafts.planTip ?? (presetTip ? '' : st.tipPct))}" data-change="tipCustom" data-input="draft" placeholder="Other %" aria-label="Your own tip percent" class="${select} ${presetTip ? '' : 'border-terracotta-400'}">
+          </div>
         </div>
       </div>
       <div>

@@ -41,8 +41,19 @@ function splitEven(amount, k, start) {
 // lowers only their food, never anyone else's tip.
 export function tipAmount(receipt) {
   if (Number(receipt?.tip) > 0) return cents(receipt.tip);
-  const base = sum((receipt?.items ?? []).map((it) => Math.max(cents(it.price), 0)));
-  return Math.max(0, Math.round((base * (Number(receipt?.tipPct) || 0)) / 100));
+  return Math.max(0, Math.round((foodBase(receipt) * (Number(receipt?.tipPct) || 0)) / 100));
+}
+
+const foodBase = (receipt) => sum((receipt?.items ?? []).map((it) => Math.max(cents(it.price), 0)));
+const dollars = (c) => `$${(c / 100).toFixed(2)}`;
+
+// The tip in one line: "Tip $13.32 (18% of $74.00 food)", or for a fixed tip "Tip $12.00 (16.2% of the food)".
+export function explainTip(receipt) {
+  const tip = tipAmount(receipt);
+  if (!tip) return 'No tip';
+  const base = foodBase(receipt);
+  if (Number(receipt.tip) > 0) return base ? `Tip ${dollars(tip)} (${Math.round((1000 * tip) / base) / 10}% of the food)` : `Tip ${dollars(tip)}`;
+  return `Tip ${dollars(tip)} (${Math.round(Number(receipt.tipPct) * 100) / 100}% of ${dollars(base)} food)`;
 }
 
 const PARTS = ['food', 'discount', 'tax', 'service', 'tip'];

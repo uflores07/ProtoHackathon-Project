@@ -1,17 +1,26 @@
-// Split's colours and fonts, taken from the UI prototype (design/prototype.html).
+// Split's colours and fonts. The colours are the sunflower palette: sage green #9DBBAA, sunflower orange #F28B37,
+// burnt orange #CF5F22, rust red #A43527 and dark brown #341D1C on a warm off-white. Text and button shades are
+// deepened so white or coloured text on them passes WCAG AA (4.5:1); the bright orange is kept for accents.
 // Loaded right after the Tailwind CDN script, so every page can use these classes.
 tailwind.config = {
   theme: {
     extend: {
       colors: {
+        // Burnt orange -> rust. 500+ carry white text; 600/700 are the text shades.
         terracotta: {
-          50: '#FDF7F5', 100: '#FBECE8', 200: '#F7D4CC', 300: '#F1B2A3', 400: '#E9846E',
-          500: '#E05638', 600: '#C73F22', 700: '#A12F18', 800: '#812816', 900: '#692416',
+          50: '#FDF3EC', 100: '#FAE3D3', 200: '#F3C4A5', 300: '#E89A6B', 400: '#CF5F22',
+          500: '#B54C1B', 600: '#AA4221', 700: '#A43527', 800: '#7E2A1F', 900: '#561D17',
         },
-        amberWarm: { 100: '#FEF3C7', 400: '#FBBF24', 500: '#F59E0B', 600: '#D97706', 800: '#92400E' },
-        sage: { 50: '#ECFDF5', 100: '#D1FAE5', 300: '#6EE7B7', 400: '#34D399', 500: '#10B981', 600: '#059669', 800: '#065F46' },
-        creamBg: '#FAF7F2',
-        espresso: '#1F2937',
+        // Sunflower orange. 500 is the bright accent; 600 is deep enough for white text and text on white.
+        amberWarm: { 100: '#FDEBD3', 400: '#F6A65A', 500: '#F28B37', 600: '#985A12', 800: '#723A10' },
+        sage: { 50: '#F1F6F3', 100: '#DFEBE4', 300: '#B9D0C3', 400: '#9DBBAA', 500: '#4C7A62', 600: '#3D6851', 800: '#284534' },
+        // Warm greys so muted text reads as brown-grey, and dark enough to read (500 is 6.4:1 on white).
+        gray: {
+          50: '#FAF6F1', 100: '#F3ECE4', 200: '#E7DDD2', 300: '#CFC2B6', 400: '#8F7F74',
+          500: '#6B5C53', 600: '#594B43', 700: '#45372F', 800: '#2F2420', 900: '#221A17',
+        },
+        creamBg: '#FAF4EA',
+        espresso: '#341D1C',
       },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],

@@ -20,7 +20,8 @@ let me = { id: uid(), name: '', pay: {}, prefs: {}, ...load(ME) };
 localStorage.setItem(ME, JSON.stringify(me));
 
 // The fields of `me` that other people see in the session.
-const asMember = (m) => ({ id: m.id, name: m.name, pay: m.pay, ...m.prefs });
+// guest: false turns a friend's guest placeholder (added from Settings) into their real entry when they join.
+const asMember = (m) => ({ id: m.id, name: m.name, pay: m.pay, ...m.prefs, guest: false });
 
 async function getTransport() {
   if (transport) return transport;
@@ -88,7 +89,7 @@ export const store = {
     if (!found) return false;
     code = c;
     localStorage.setItem(LAST, c);
-    if (me.name && !state.members[me.id]) await store.dispatch({ type: 'member/join', member: asMember(me) });
+    if (me.name && (!state.members[me.id] || state.members[me.id].guest)) await store.dispatch({ type: 'member/join', member: asMember(me) });
     return true;
   },
 

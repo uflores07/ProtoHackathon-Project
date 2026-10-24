@@ -1,6 +1,5 @@
 // Starts the app: joins or creates a group, wires the header and nav, and shows the
 // current tab. Each tab is its own module in js/screens/ exporting mount(root) and render(root, state).
-import { demoMode, getApiKey, setApiKey, usingServerKey } from './ai/client.js';
 import { hasMeal, saveMeal, wasDeleted } from './history.js';
 import { current, go, onTab, TABS } from './router.js';
 import { askCameraOnce } from './camera.js';
@@ -8,8 +7,10 @@ import { openScanner } from './scanner.js';
 import * as group from './screens/group.js';
 import * as ledger from './screens/ledger.js';
 import * as planner from './screens/planner.js';
+import { openSettings } from './screens/settings.js';
 import * as split from './screens/split.js';
 import { store } from './store.js';
+import './theme.js'; // applies the saved light/dark choice and follows the phone's setting
 import { $, cls, delegate, esc, sheet, toast } from './ui.js';
 
 const screens = { group, planner, split, ledger };
@@ -67,56 +68,6 @@ function keepFinishedMeal(s) {
 }
 
 const joinUrl = (code) => `${location.origin}${location.pathname}?s=${code}`;
-const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-
-function settingsSheet() {
-  const me = store.me;
-  const field = (id, label, value, attrs = '') => `
-    <div><label for="${id}" class="${cls.label}">${label}</label>
-    <input id="${id}" value="${esc(value)}" class="${cls.input}" ${attrs}></div>`;
-  const { el, close } = sheet({
-    title: 'Settings',
-    subtitle: 'Saved on this phone',
-    icon: 'fa-gear',
-    body: `
-      <form data-submit="save" class="flex flex-col gap-2.5">
-        ${field('setName', 'Your name', me.name, 'required maxlength="24" autocomplete="given-name" placeholder="e.g. Alex"')}
-        <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 pt-1">How friends pay you back (optional)</p>
-        ${field('setEmail', 'Interac e-Transfer email', me.pay?.email, 'type="email" autocomplete="email" placeholder="you@email.com"')}
-        <div class="grid grid-cols-2 gap-2">
-          ${field('setPaypal', 'PayPal.me name', me.pay?.paypal, 'placeholder="yourname"')}
-          ${field('setVenmo', 'Venmo name', me.pay?.venmo, 'placeholder="your-name"')}
-        </div>
-        <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400 pt-1">AI (reads menus and receipts)</p>
-        ${field('setKey', 'Gemini API key', getApiKey(), 'type="password" autocomplete="off" placeholder="From aistudio.google.com"')}
-        <p class="text-[9px] text-gray-500 leading-snug">${demoMode()
-          ? '<b>Demo mode:</b> no key yet, so scans and searches use sample data. Only the person scanning needs a key.'
-          : usingServerKey()
-            ? '<b>Gemini is on</b> with the app\'s built-in key. Leave this blank to keep using it.'
-            : '<b>Gemini is on.</b> The key stays on this phone and is only sent to Google.'}</p>
-        <p class="text-[9px] text-gray-500 leading-snug"><b>Sync:</b> ${store.synced
-          ? 'phones in your group update live.'
-          : 'this device only. Add a Firebase config in js/config.js to sync phones (see TEAM.md).'}</p>
-        ${standalone() ? '' : `<div class="p-2.5 rounded-2xl bg-orange-50 border border-orange-100 text-[10px] text-espresso leading-snug">
-          <b><i class="fa-solid fa-mobile-screen"></i> Put Split on your home screen</b><br>
-          iPhone (Safari): Share <i class="fa-solid fa-arrow-up-from-bracket"></i>, then <b>Add to Home Screen</b>.<br>
-          Android (Chrome): <b>⋮</b>, then <b>Install app</b>.</div>`}
-        <button class="${cls.btn}"><i class="fa-solid fa-check"></i> Save</button>
-      </form>`,
-  });
-  delegate(el, {
-    save: async () => {
-      const name = $('#setName', el).value.trim();
-      if (!name) return;
-      setApiKey($('#setKey', el).value);
-      close();
-      await store.saveMe({ name, pay: { email: $('#setEmail', el).value.trim(), paypal: $('#setPaypal', el).value.trim(), venmo: $('#setVenmo', el).value.trim() } });
-      toast('Saved', demoMode() ? 'Demo mode until you add an API key.' : 'Gemini is ready to read photos.');
-      render();
-    },
-  });
-}
-
 // First run: a full-screen sign-in (no password). Your name is what friends see in the group,
 // and the e-Transfer email is where they send your share.
 function welcomeScreen() {
@@ -241,12 +192,15 @@ async function peopleSheet() {
 }
 
 async function boot() {
+  // Settings no longer takes an AI key (the team's Worker holds it). A key saved by the old Settings
+  // would override the Worker with no way to change it, so drop it.
+  try { localStorage.removeItem('split.geminiKey'); } catch { /* storage blocked: nothing saved anyway */ }
   for (const [tab, mod] of Object.entries(screens)) mod.mount?.($(`#screen-${tab}`));
   delegate(document.body, {
     tab: (el) => go(el.dataset.tab),
     scan: () => openScanner(current() === 'planner' ? 'menu' : 'receipt'),
     people: () => store.state && peopleSheet(),
-    settings: () => settingsSheet(),
+    settings: () => openSettings({ onInvite: peopleSheet, onClose: render }),
   });
   store.subscribe(renderSoon);
   onTab(show);
@@ -268,6 +222,8 @@ async function boot() {
   }
   show(current());
   if (!store.me.name) welcomeScreen();
+  // A reload with Settings open leaves its extra history entry behind; drop it so Back works.
+  if (history.state?.settings) history.replaceState(null, '');
 
   // Offline copy for phones. Skipped on localhost so code changes show up on reload while you work.
   if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {

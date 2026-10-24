@@ -1,6 +1,7 @@
 // Group Finder: everyone's preferences, the AI restaurant search, ranking, voting, and
 // locking the winner into the planner. Ranking itself lives in js/lib/rankPlaces.js.
 import { findPlaces } from '../ai/places.js';
+import { suggestPlaces } from '../geo.js';
 import { listMeals } from '../history.js';
 import { dietLabel, rankPlaces, similarHistory, voteCounts, winner } from '../lib/rankPlaces.js';
 import { DIETS } from '../reducer.js';
@@ -21,6 +22,13 @@ let similarBusy = false;
 let similar = null; // { places, demo }: the "places like ones you've loved" search, this phone only
 let votingAs = null; // member id this phone votes as: you, or a guest (guests have no phone)
 const open = { more: false, over: false };
+// Area box suggestions. Kept here and drawn by areaList(), so store re-renders keep the list.
+let areaDraft = null; // half-typed area, so a sync from another phone doesn't wipe it
+let areaHits = null; // suggestions for the typed text: null = list closed, [] = nothing matched
+let areaHitsFor = ''; // the text those suggestions are for, to bold the matching part
+let areaActive = -1; // option highlighted with the arrow keys
+let lookTimer = 0;
+let lookCtrl = null;
 
 const rerender = () => store.state && render(rootEl, store.state);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -38,11 +46,81 @@ const happy = (row, s) => `${row.satisfied.length} of ${Object.keys(s.members).l
 const areaValue = () => ($('#groupArea', rootEl)?.value ?? store.state.area).trim();
 
 function needArea() {
-  toast('Where are you eating?', 'Type an area first, like "Coquitlam, BC".', 'info');
+  toast('Where are you eating?', 'Type a city or area first.', 'info');
   $('#groupArea', rootEl)?.focus();
 }
 
 // --- Banner + area ---
+
+// Bold the part of a suggestion that matches what was typed.
+function boldMatch(label, q) {
+  const m = q ? label.match(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')) : null;
+  if (!m) return esc(label);
+  const end = m.index + m[0].length;
+  return `${esc(label.slice(0, m.index))}<b class="font-extrabold text-terracotta-600">${esc(m[0])}</b>${esc(label.slice(end))}`;
+}
+
+const POP = 'absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-2xl border border-orange-100 shadow-lg';
+const areaOpen = () => !!areaHits?.length;
+const activeOpt = () => (areaActive >= 0 ? `groupAreaOpt${areaActive}` : '');
+
+function areaList() {
+  if (!areaHits) return '';
+  if (!areaHits.length) return `<p role="status" class="${POP} px-3 py-2.5 text-[10px] text-gray-500">No places found, you can still use what you typed</p>`;
+  return `<ul id="groupAreaList" role="listbox" aria-label="Matching places" class="${POP} p-1 flex flex-col">
+    ${areaHits.map((p, i) => `<li id="groupAreaOpt${i}" role="option" aria-selected="${i === areaActive}" data-click="pickArea" data-pick="${i}"
+      class="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-espresso cursor-pointer ${i === areaActive ? 'bg-orange-50' : 'hover:bg-gray-50'}">
+      <i class="fa-solid fa-location-dot text-[10px] text-terracotta-500" aria-hidden="true"></i><span class="truncate min-w-0">${boldMatch(p.label, areaHitsFor)}</span></li>`).join('')}
+  </ul>`;
+}
+
+// Redraw just the list, not the screen, so the box being typed in is left alone.
+function paintAreaList() {
+  const box = $('#groupArea', rootEl);
+  const pop = $('#groupAreaPop', rootEl);
+  if (!box || !pop) return;
+  pop.innerHTML = areaList();
+  box.setAttribute('aria-expanded', areaOpen());
+  if (activeOpt()) box.setAttribute('aria-activedescendant', activeOpt());
+  else box.removeAttribute('aria-activedescendant');
+}
+
+// Close the list and drop any search still in flight.
+function closeAreaList() {
+  clearTimeout(lookTimer);
+  lookCtrl?.abort();
+  const wasOpen = areaHits != null;
+  areaHits = null;
+  areaActive = -1;
+  if (wasOpen) paintAreaList();
+}
+
+function lookUpArea(q) {
+  clearTimeout(lookTimer);
+  lookCtrl?.abort();
+  if (q.length < 2) return closeAreaList();
+  if (areaActive >= 0) { areaActive = -1; paintAreaList(); } // the old highlight may not match any more
+  lookTimer = setTimeout(async () => {
+    const ctrl = (lookCtrl = new AbortController());
+    const hits = await suggestPlaces(q, ctrl.signal);
+    if (ctrl.signal.aborted || document.activeElement?.id !== 'groupArea') return;
+    areaHits = hits.slice(0, 6);
+    areaHitsFor = q;
+    areaActive = -1;
+    paintAreaList();
+  }, 250);
+}
+
+const saveArea = (v) => { areaDraft = null; store.dispatch({ type: 'session/setArea', area: v.trim() }); };
+
+function chooseArea(i) {
+  const hit = areaHits?.[i];
+  const box = $('#groupArea', rootEl);
+  if (!hit || !box) return;
+  box.value = hit.label;
+  closeAreaList();
+  saveArea(hit.label);
+}
 
 const banner = (s) => `
   <div class="bg-gradient-to-br from-espresso via-terracotta-900 to-amberWarm-600 rounded-3xl p-3.5 text-white shadow-md flex flex-col gap-1.5">
@@ -53,8 +131,12 @@ const banner = (s) => `
     <h2 class="font-display font-extrabold text-base leading-snug">Find a place that works for everyone</h2>
     <p class="text-[10px] text-orange-100/90 leading-relaxed">We check everyone's budget, cuisine, distance and diet, then rank the places that suit the most people. Anywhere over <b>anyone's</b> budget is left out.</p>
     <label for="groupArea" class="text-[9px] font-bold uppercase tracking-wider text-amber-300 pt-1">Area</label>
-    <input id="groupArea" data-change="setArea" value="${esc(s.area)}" maxlength="60" autocomplete="off" placeholder="Where you're eating, e.g. Coquitlam, BC"
-      class="w-full bg-white/15 border border-white/25 rounded-xl p-2 text-xs font-semibold text-white placeholder:text-white/50 focus:outline-none focus:border-white/60">
+    <div class="relative">
+      <input id="groupArea" data-change="setArea" data-input="typeArea" value="${esc(areaDraft ?? s.area)}" maxlength="60" autocomplete="off" placeholder="Search for a city or area"
+        role="combobox" aria-autocomplete="list" aria-controls="groupAreaList" aria-expanded="${areaOpen()}" ${activeOpt() ? `aria-activedescendant="${activeOpt()}"` : ''}
+        class="w-full bg-white/15 border border-white/25 rounded-xl p-2 text-xs font-semibold text-white placeholder:text-white/50 focus:outline-none focus:border-white/60">
+      <div id="groupAreaPop">${areaList()}</div>
+    </div>
   </div>`;
 
 // --- Members ---
@@ -332,8 +414,36 @@ function similarCard() {
 
 export function mount(root) {
   rootEl = root;
+  // Area box: arrow keys move the highlight, Enter picks it, Escape or leaving the box closes the list.
+  root.addEventListener('keydown', (e) => {
+    if (e.target.id !== 'groupArea' || !areaHits) return;
+    const n = areaHits.length;
+    if (n && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      areaActive = e.key === 'ArrowDown' ? (areaActive + 1) % n : (areaActive <= 0 ? n : areaActive) - 1;
+      paintAreaList();
+    } else if (e.key === 'Enter' && areaActive >= 0) {
+      e.preventDefault();
+      chooseArea(areaActive);
+    } else if (e.key === 'Enter' || e.key === 'Escape') closeAreaList();
+  });
+  // Pressing a suggestion keeps the box focused, so the list is still there when the click lands.
+  // (Picking on pointerdown instead would let iOS send the click to the card under the closed list.)
+  root.addEventListener('mousedown', (e) => { if (e.target.closest('[data-pick]')) e.preventDefault(); });
+  // Short wait: a re-render puts focus straight back in the box, and that isn't leaving it.
+  root.addEventListener('focusout', (e) => {
+    if (e.target.id !== 'groupArea') return;
+    setTimeout(() => {
+      if (document.activeElement?.id === 'groupArea') return;
+      closeAreaList();
+      // A sync re-render mid-typing swaps in a new box, which won't fire change, so save the draft here.
+      if (areaDraft != null) saveArea(areaDraft);
+    }, 150);
+  });
   delegate(root, {
-    setArea: (el) => store.dispatch({ type: 'session/setArea', area: el.value.trim() }),
+    setArea: (el) => saveArea(el.value),
+    typeArea: (el) => { areaDraft = el.value; lookUpArea(el.value.trim()); },
+    pickArea: (el) => chooseArea(Number(el.dataset.pick)),
     edit: (el) => { const m = store.state.members[el.dataset.id]; if (m) editSheet(m); },
     addGuest: () => editSheet(null),
     find: async () => {
