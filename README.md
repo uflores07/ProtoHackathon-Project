@@ -13,7 +13,7 @@ It's a web app you add to your home screen, so there's no app store. It works on
 
 ## Put it on your phone
 
-Open the app's link on your phone: **https://uflores07.github.io/Proto-Project/** (once GitHub Pages is turned on, see below). Then:
+Open the app's link on your phone: **https://uflores07.github.io/ProtoHackathon-Project/** (once GitHub Pages is turned on, see below). Then:
 
 - **iPhone (Safari):** tap Share, then **Add to Home Screen**.
 - **Android (Chrome):** tap ⋮, then **Install app** (or **Add to Home screen**).
