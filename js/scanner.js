@@ -4,7 +4,6 @@
 // Screens register what to do with a result: onScanned('menu', (data, opts) => ...).
 // For receipts, opts.even says whether to split the whole bill evenly between the group.
 // A handler can return { title, body } to replace the "scanned!" toast.
-import { demoMode } from './ai/client.js';
 import { scanMenu } from './ai/menu.js';
 import { scanReceipt } from './ai/receipt.js';
 import { grabFrame, pickPhoto, shrink, startCamera, stopCamera } from './camera.js';
@@ -75,8 +74,7 @@ export function openScanner(kind = 'receipt') {
       </button>
       <button data-act="shoot" id="scanShoot" class="justify-self-center w-[72px] h-[72px] rounded-full bg-white ring-4 ring-white/40 ring-offset-4 ring-offset-black flex items-center justify-center text-espresso text-2xl active:scale-90 transition-all disabled:opacity-50"></button>
       <span></span>
-    </div>
-    <button data-act="sample" id="scanSample" class="text-sm text-white/80 font-semibold underline underline-offset-4 py-1 invisible"></button>`;
+    </div>`;
   $('#sheetRoot').appendChild(wrap);
 
   const video = $('#scanVideo', wrap);
@@ -114,9 +112,6 @@ export function openScanner(kind = 'receipt') {
       : state === 'still' ? '<i class="fa-solid fa-rotate-right"></i>'
       : state === 'nocam' ? '<i class="fa-solid fa-camera"></i>' : '';
     shoot.setAttribute('aria-label', state === 'still' ? 'Retake' : 'Take photo');
-    const sample = $('#scanSample', wrap);
-    sample.classList.toggle('invisible', !demoMode() || busy);
-    sample.textContent = `No API key yet? Use the sample ${kind}`;
   };
 
   const goLive = async () => {
@@ -174,7 +169,6 @@ export function openScanner(kind = 'receipt') {
       saveEven(even);
       paint();
     }
-    if (act === 'sample') run(null);
     if (act === 'shoot' && state === 'live' && video.videoWidth) run(grabFrame(video));
     else if (act === 'shoot' && state === 'still') goLive();
     if (act === 'pick' || (act === 'shoot' && state === 'nocam')) {

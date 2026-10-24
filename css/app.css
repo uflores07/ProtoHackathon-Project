@@ -24,3 +24,12 @@ body {
 @media (max-width: 639px) {
   input, select, textarea { font-size: 16px !important; }
 }
+
+/* The app logo as an inline icon, used where a Font Awesome icon would go: <i class="fa-solid split-logo"></i> */
+.split-logo {
+  width: 1.2em;
+  height: 1.2em;
+  background: url(../icons/icon.svg) center / contain no-repeat;
+  border-radius: 22%;
+  vertical-align: -0.25em;
+}

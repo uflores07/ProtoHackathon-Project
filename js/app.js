@@ -138,9 +138,7 @@ function welcomeScreen() {
   wrap.innerHTML = `
     <div class="relative shrink-0 min-h-[38%] bg-gradient-to-br from-terracotta-600 via-amberWarm-600 to-terracotta-700 text-white flex flex-col items-center justify-center gap-3 px-6 pt-10 pb-14 safe-top overflow-hidden">
       <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop&q=80" class="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-overlay" alt="">
-      <div class="relative w-16 h-16 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg">
-        <i class="fa-solid fa-utensils text-2xl"></i>
-      </div>
+      <img src="icons/icon.svg" class="relative w-20 h-20 rounded-[22px] shadow-lg ring-2 ring-white/40" alt="">
       <h1 class="relative font-display font-extrabold text-4xl tracking-tight drop-shadow-xs">Split</h1>
       <p class="relative text-sm font-semibold text-amber-100 text-center">Plan the order. Split the bill fairly.</p>
     </div>
@@ -274,10 +272,6 @@ async function boot() {
   // Offline copy for phones. Skipped on localhost so code changes show up on reload while you work.
   if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {
     navigator.serviceWorker.register('sw.js');
-  }
-  // Agentation feedback toolbar, for working on the UI with an AI agent. Localhost only, never on the live site.
-  if (['localhost', '127.0.0.1'].includes(location.hostname)) {
-    import('./dev/agentation.js').catch((e) => console.warn('Agentation did not load', e));
   }
 }
 

@@ -204,7 +204,7 @@ function empty() {
       <h3 class="${cls.title}">Your ledger</h3>
       <p class="text-[10px] text-gray-500 mt-1">No meals yet. Finish a split and it shows up here.</p>
     </div>
-    ${demoMode() ? `<button data-click="loadSamples" class="${cls.btnGhost}"><i class="fa-solid fa-utensils"></i> Load sample meals</button>` : ''}
+    ${demoMode() ? `<button data-click="loadSamples" class="${cls.btnGhost}"><i class="fa-solid split-logo"></i> Load sample meals</button>` : ''}
   </div>`;
 }
 

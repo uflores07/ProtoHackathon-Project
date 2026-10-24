@@ -10,7 +10,7 @@ let view = 'plan'; // 'plan' | 'live'
 let avoid = []; // dishes swapped away from, so tapping swap again moves on to a new dish
 const drafts = {}; // half-typed inputs, so a sync from another phone doesn't wipe them
 
-const ICON = { appetizer: 'fa-bowl-food', main: 'fa-utensils', side: 'fa-bread-slice', dessert: 'fa-ice-cream', drink: 'fa-glass-water', other: 'fa-plate-wheat' };
+const ICON = { appetizer: 'fa-bowl-food', main: 'split-logo', side: 'fa-bread-slice', dessert: 'fa-ice-cream', drink: 'fa-glass-water', other: 'fa-plate-wheat' };
 const HUNGER_LABEL = { light: 'Light', normal: 'Normal', starving: 'Starving' };
 const dietName = (d) => d.replace(/_/g, ' ');
 const firstName = (name) => esc((name || 'Guest').trim().split(/\s+/)[0]);
@@ -129,7 +129,7 @@ export function render(root, state) {
   patch(root, `
     <div class="flex p-1 bg-white/90 backdrop-blur-md rounded-2xl border border-orange-100 shadow-sm">
       ${tabBtn('plan', 'fa-wand-magic-sparkles', 'Order Planner')}
-      ${tabBtn('live', 'fa-utensils', 'Live Tab')}
+      ${tabBtn('live', 'split-logo', 'Live Tab')}
     </div>
     ${view === 'live' ? liveView(state) : planView(state)}`);
 }
