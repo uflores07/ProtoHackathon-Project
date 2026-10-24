@@ -6,7 +6,7 @@ Split is a phone app for eating out with friends:
 
 1. **Group:** everyone sets a budget, cuisine, travel distance and diet. Split searches the web for restaurants that work for the whole group, ranks them, and you vote.
 2. **Planner:** snap the menu, enter headcount and budget, and get an order that fits *after* tax and tip. Then use the live tab at the table to tap who's eating what.
-3. **Fair Split:** snap the receipt. Everyone taps what they ate, and tax, tip, service charges and discounts are split by item, not evenly. Payment requests go out by e-Transfer, PayPal or Venmo.
+3. **Fair Split:** snap the receipt. Everyone taps what they ate, and tax, tip, service charges and discounts are split by item, not evenly. Or pick **Split evenly** (in the camera or on the receipt): the whole bill, tax and tip included, is divided by the number of people in the group, to the cent. Payment requests go out by e-Transfer, PayPal or Venmo.
 4. **Ledger:** past meals, who owes who, and what you've spent.
 
 It's a web app you add to your home screen, so there's no app store. It works on iPhone and Android.

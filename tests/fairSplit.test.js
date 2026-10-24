@@ -284,3 +284,32 @@ test('budget check: planned vs actual and what pushed it over', () => {
   assert.deepEqual(budgetCheck(r, { settings: { budget: 80 }, menu: [], order: [] }).planned, null);
   assert.equal(budgetCheck(r, null).diff, null);
 });
+
+test('split evenly: the whole bill divided by the group, to the cent', () => {
+  const r = receipt([['Pizza', 18], ['Salad', 14], ['Wine', 40]], { tax: 3.6, tipPct: 18, evenSplit: true });
+  const res = computeShares(r, ['a', 'b', 'c']);
+  assertConsistent(res, r);
+  assert.equal(res.allClaimed, true);
+  assert.equal(res.even, true);
+  assert.deepEqual(res.unclaimed, []);
+  const totals = Object.values(res.people).map((p) => p.total);
+  assert.ok(Math.max(...totals) - Math.min(...totals) <= 1, `shares ${totals} differ by more than a cent`);
+});
+
+test('split evenly ignores who claimed what', () => {
+  const base = receipt([['Steak', 60], ['Fries', 6]], { tax: 3.3, tipPct: 15, claims: claims({ r1: ['a'], r2: ['b'] }) });
+  const even = computeShares({ ...base, evenSplit: true }, ['a', 'b']);
+  assert.equal(even.people.a.total, even.people.b.total);
+  assert.notEqual(computeShares(base, ['a', 'b']).people.a.total, computeShares(base, ['a', 'b']).people.b.total);
+});
+
+test('split evenly keeps every cent on awkward bills', () => {
+  for (const n of [1, 2, 3, 4, 6, 7]) {
+    const ids = Array.from({ length: n }, (_, i) => `p${i}`);
+    const r = receipt([['A', 10.01], ['B', 0], ['Coupon', -2.5]], { tax: 0.53, serviceCharge: 1.11, discount: 0.99, tip: 4.07, evenSplit: true });
+    const res = computeShares(r, ids);
+    assertConsistent(res, r);
+    const totals = Object.values(res.people).map((p) => p.total);
+    assert.ok(Math.max(...totals) - Math.min(...totals) <= 1);
+  }
+});

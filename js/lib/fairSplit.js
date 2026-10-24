@@ -49,6 +49,7 @@ const PARTS = ['food', 'discount', 'tax', 'service', 'tip'];
 const blank = () => ({ items: [], food: 0, base: 0, discount: 0, tax: 0, service: 0, tip: 0, total: 0 });
 
 // Who pays what, in cents. discount is negative (it's money off).
+// receipt.evenSplit splits the whole bill equally between everyone in memberIds instead of by item.
 // base is the full-price food a person had (no minus lines): tax, tip, fees and discounts follow it.
 // memberIds are sorted so every phone rounds the same way, whatever order it lists people in.
 // Free ($0) lines nobody claimed are left out of `unclaimed`: no money hangs on them.
@@ -67,6 +68,29 @@ export function computeShares(receipt, memberIds = []) {
   const onItem = Object.fromEntries(Object.entries(charges).map(([k, v]) => [k, allocate(v, weights)]));
 
   const people = Object.fromEntries(ids.map((id) => [id, blank()]));
+  const food = sum(prices);
+  const fees = sum(Object.values(charges));
+  const totals = { food, base: sum(weights), ...charges, total: food + fees };
+
+  // Split evenly: add up the whole bill and divide it by the number of people, whatever they ate.
+  // The extra cents carry on round-robin across every part, so nobody pays more than 1 cent extra.
+  if (receipt?.evenSplit && ids.length) {
+    let at = 0;
+    const [base] = splitEven(totals.base, ids.length, 0);
+    for (const [key, amount] of [['food', food], ...Object.entries(charges)]) {
+      let shares;
+      [shares, at] = splitEven(amount, ids.length, at);
+      ids.forEach((id, j) => { people[id][key] += shares[j]; });
+    }
+    ids.forEach((id, j) => {
+      const p = people[id];
+      p.base = base[j];
+      p.total = p.food + p.discount + p.tax + p.service + p.tip;
+      p.items.push({ itemId: null, name: 'Even share of the bill', amount: p.total, split: ids.length });
+    });
+    return { people, unclaimed: [], totals, allClaimed: true, even: true };
+  }
+
   const unclaimed = [];
   items.forEach((it, i) => {
     const parts = { food: prices[i], discount: onItem.discount[i], tax: onItem.tax[i], service: onItem.service[i], tip: onItem.tip[i] };
@@ -92,11 +116,9 @@ export function computeShares(receipt, memberIds = []) {
   });
 
   // No lines to carry the fees: keep them visible as unclaimed so the totals still add up.
-  const fees = sum(Object.values(charges));
   if (!items.length && fees) unclaimed.push({ itemId: null, name: 'Tax, tip and fees', amount: fees });
 
-  const food = sum(prices);
-  return { people, unclaimed, totals: { food, base: sum(weights), ...charges, total: food + fees }, allClaimed: !unclaimed.length };
+  return { people, unclaimed, totals, allClaimed: !unclaimed.length, even: false };
 }
 
 // One line on how a person's tax, tip and fees were worked out (person and totals from computeShares).

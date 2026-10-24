@@ -1,5 +1,5 @@
 // Fair Split (Person 1): snap the receipt, everyone taps what they ate, and tax, tip,
-// service charges and discounts follow each dish. Then the payer collects by e-Transfer, PayPal or Venmo.
+// service charges and discounts follow each dish. Or split evenly: the whole bill divided by the group. Then the payer collects by e-Transfer, PayPal or Venmo.
 // The maths is in js/lib/fairSplit.js (cents in, cents out); this file only draws it.
 import { listMeals, updateMeal } from '../history.js';
 import { budgetCheck, computeShares, explainShare, prefillClaims } from '../lib/fairSplit.js';
@@ -13,6 +13,7 @@ const TIPS = [0, 15, 18, 20];
 const $c = (c) => money(c / 100);
 const toDollars = (c) => Math.round(c) / 100;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const heads = (n) => `${n} ${n === 1 ? 'person' : 'people'}`;
 const parseMoney = (v) => {
   const n = Number.parseFloat(v);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
@@ -32,13 +33,14 @@ const field = (id, label, value, attrs = '') => `
 const moneyAttrs = 'type="number" inputmode="decimal" step="0.01"';
 
 export function mount(root) {
-  onScanned('receipt', async (r) => {
+  onScanned('receipt', async (r, opts = {}) => {
     const s = store.state;
     if (!s) return;
     await store.dispatch({
       type: 'receipt/set',
       receipt: {
         ...r,
+        evenSplit: !!opts.even,
         payerId: store.me.id,
         // A service charge is already the tip, so nobody double-tips by default.
         tipPct: r.serviceCharge > 0 ? 0 : s.plan.settings.tipPct,
@@ -46,6 +48,7 @@ export function mount(root) {
       },
     });
     go('split');
+    return opts.even ? evenToast(store.state) : null;
   });
   store.subscribe(keepLedgerPaid);
 
@@ -56,6 +59,8 @@ export function mount(root) {
       const s = store.state;
       store.dispatch({ type: 'receipt/set', receipt: { restaurant: s.plan.restaurant?.name ?? '', items: [], payerId: store.me.id, tipPct: s.plan.settings.tipPct, claims: {} } });
     },
+    evenMode: (b) => store.dispatch({ type: 'receipt/update', patch: { evenSplit: b.dataset.on === '1' } }),
+    addGuest: () => guestSheet(),
     mine: (b) => store.dispatch({ type: 'receipt/claim', itemId: b.dataset.id, memberId: store.me.id }),
     splitItem: (b) => splitSheet(b.dataset.id),
     editItem: (b) => itemSheet(b.dataset.id),
@@ -108,30 +113,83 @@ function emptyView(s) {
     </div>`;
 }
 
+// What the scanner shows once a receipt is read in even mode: the total, ÷ people, = each.
+function evenToast(s) {
+  const r = s?.receipt;
+  if (!r) return null;
+  const split = shares(s);
+  const n = Object.keys(s.members).length;
+  const each = Math.max(0, ...Object.values(split.people).map((p) => p.total));
+  return {
+    title: `${$c(split.totals.total)} ÷ ${heads(n)}`,
+    body: `${$c(each)} each, tax${split.totals.tip ? ' and tip' : ''} included${r.demo ? ' (demo: sample data)' : ''}`,
+  };
+}
+
+// The switch between splitting by item and splitting the whole bill evenly.
+function modeSwitch(r) {
+  const opt = (on, icon, label) => {
+    const active = !!r.evenSplit === on;
+    return `<button data-click="evenMode" data-on="${on ? '1' : ''}" aria-pressed="${active}"
+      class="py-2 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all ${active ? 'bg-white text-espresso shadow-sm' : 'text-gray-500'}">
+      <i class="fa-solid ${icon}"></i> ${label}</button>`;
+  };
+  return `<div class="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-gray-100" role="group" aria-label="How to split the bill">
+    ${opt(true, 'fa-equals', 'Split evenly')}${opt(false, 'fa-hand-pointer', 'By what you ate')}</div>`;
+}
+
+// Total ÷ people = each. Shares can differ by a cent when the bill doesn't divide exactly.
+function evenSummary(s, split) {
+  const n = Object.keys(s.members).length;
+  const totals = Object.values(split.people).map((p) => p.total);
+  const hi = totals.length ? Math.max(...totals) : 0;
+  const lo = totals.length ? Math.min(...totals) : 0;
+  const t = split.totals;
+  const parts = [['Items', t.food], ['Discount', t.discount], ['Tax', t.tax], ['Service', t.service], ['Tip', t.tip]].filter(([, v]) => v);
+  return `
+    <div class="p-3 rounded-2xl bg-gradient-to-br from-terracotta-500 to-amberWarm-600 text-white flex flex-col gap-1.5">
+      <div class="flex items-center justify-between gap-2 text-[10px] font-semibold text-orange-100">
+        <span>${parts.map(([k, v]) => `${k} ${$c(v)}`).join(' + ')}</span>
+      </div>
+      <div class="flex items-end justify-between gap-2">
+        <div>
+          <p class="text-[10px] font-semibold text-orange-100">Total ${$c(t.total)} ÷ ${heads(n)}</p>
+          <p class="font-display font-extrabold text-2xl leading-tight">${$c(hi)} <span class="text-sm font-bold">each</span></p>
+        </div>
+        <button data-click="addGuest" class="${smallBtn} bg-white/20 text-white shrink-0"><i class="fa-solid fa-user-plus"></i> Add person</button>
+      </div>
+      ${hi !== lo ? `<p class="text-[9px] text-orange-100">The bill doesn't divide exactly, so some pay ${$c(lo)} (1 cent less).</p>` : ''}
+      ${n < 2 ? `<p class="text-[10px] font-semibold text-white bg-black/15 rounded-xl p-2">Only you are in the group. Invite your friends with the code at the top, or tap Add person for someone without the app.</p>` : ''}
+    </div>`;
+}
+
 function receiptCard(s, split) {
   const r = s.receipt;
-  const amIn = !!s.members[store.me.id];
-  const open = split.unclaimed.filter((u) => u.itemId).length;
+  const even = !!r.evenSplit;
+  const amIn = !even && !!s.members[store.me.id];
+  const open = even ? 0 : split.unclaimed.filter((u) => u.itemId).length;
   return `
     <div class="${cls.card}">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap"><h3 class="${cls.title}">${esc(r.restaurant || 'Your receipt')}</h3>${demoBadge(r.demo)}</div>
-          <p class="${cls.sub}">${plural(r.items.length, 'item')} • Tax & tip split by what you ate</p>
+          <p class="${cls.sub}">${plural(r.items.length, 'item')} • ${even ? 'Whole bill split evenly' : 'Tax & tip split by what you ate'}</p>
         </div>
         <div class="flex gap-1 shrink-0">
           <button data-click="editBill" class="text-[9px] bg-gray-100 text-espresso font-bold px-2.5 py-1.5 rounded-xl">Fix totals</button>
           <button data-click="scanReceipt" class="text-[9px] bg-orange-100 text-terracotta-600 font-bold px-2.5 py-1.5 rounded-xl">Re-scan</button>
         </div>
       </div>
+      ${modeSwitch(r)}
+      ${even ? evenSummary(s, split) : ''}
       ${notesBox(r)}
       <div class="flex flex-col gap-1.5">
-        ${r.items.map((it) => itemRow(s, it, amIn)).join('') || '<p class="text-[10px] text-gray-400 text-center py-2">No items yet. Add what was on the bill.</p>'}
+        ${r.items.map((it) => itemRow(s, it, amIn, even)).join('') || '<p class="text-[10px] text-gray-400 text-center py-2">No items yet. Add what was on the bill.</p>'}
       </div>
       <button data-click="addItem" class="${cls.btnGhost}"><i class="fa-solid fa-plus"></i> Add an item</button>
       ${open ? `<div class="p-2.5 rounded-2xl bg-amberWarm-100 text-amberWarm-800 text-[10px] font-bold flex items-center gap-2" role="status">
           <i class="fa-solid fa-hand-pointer"></i> ${plural(open, 'item')} still unclaimed. Tap Mine or Split on each one.</div>`
-        : r.items.length ? `<div class="p-2.5 rounded-2xl bg-sage-50 text-sage-800 text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-circle-check text-sage-500"></i> Every item has an owner.</div>` : ''}
+        : r.items.length && !even ? `<div class="p-2.5 rounded-2xl bg-sage-50 text-sage-800 text-[10px] font-bold flex items-center gap-2"><i class="fa-solid fa-circle-check text-sage-500"></i> Every item has an owner.</div>` : ''}
     </div>`;
 }
 
@@ -150,7 +208,15 @@ function notesBox(r) {
     </div>`;
 }
 
-function itemRow(s, it, amIn) {
+function itemRow(s, it, amIn, even = false) {
+  if (even) {
+    return `
+    <button data-click="editItem" data-id="${esc(it.id)}" class="p-2 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between gap-2 text-xs text-left" aria-label="Edit ${esc(it.name)}">
+      <span class="font-bold text-espresso break-words min-w-0">${esc(it.name)}${it.qty > 1 ? ` <span class="text-gray-400 font-semibold">×${esc(it.qty)}</span>` : ''}
+        <i class="fa-solid fa-pen text-[8px] text-gray-300"></i></span>
+      <span class="font-display font-bold shrink-0 ${it.price < 0 ? 'text-sage-600' : 'text-espresso'}">${money(it.price)}</span>
+    </button>`;
+  }
   const claims = s.receipt.claims[it.id] ?? {};
   const who = people(s).filter((m) => claims[m.id]);
   const mine = !!claims[store.me.id];
@@ -204,7 +270,7 @@ function tipCard(s, split) {
         <label for="tipCustom" class="text-[10px] font-semibold text-gray-500 shrink-0">Or an amount ($)</label>
         <input id="tipCustom" data-change="tipCustom" ${moneyAttrs} min="0" value="${custom ? esc(r.tip) : ''}" placeholder="0.00" class="${cls.input} ${custom ? 'border-terracotta-400 bg-terracotta-50' : ''}">
       </div>
-      <p class="${cls.sub}">Tip is on the food before tax and discounts, and everyone tips on what they had.</p>
+      <p class="${cls.sub}">${r.evenSplit ? 'Tip is on the food before tax and discounts, split evenly with the rest of the bill.' : 'Tip is on the food before tax and discounts, and everyone tips on what they had.'}</p>
       <div class="border-t border-gray-100 pt-2.5 flex flex-col gap-1.5">
         <h3 class="${cls.title}">Who paid the bill?</h3>
         <div class="flex flex-wrap gap-1.5">${people(s).map(payerBtn).join('')}</div>
@@ -215,7 +281,7 @@ function tipCard(s, split) {
 function personBox(s, m, p, totals) {
   const mine = m.id === store.me.id;
   const lines = [['Food', p.food], ['Discount', p.discount], ['Tax', p.tax], ['Service', p.service], ['Tip', p.tip]].filter(([, v]) => v);
-  const how = explainShare(p, totals, mine ? null : m.name);
+  const how = s.receipt.evenSplit ? '' : explainShare(p, totals, mine ? null : m.name);
   return `
     <div class="p-2.5 rounded-2xl border flex flex-col gap-1 ${mine ? 'border-terracotta-300 bg-terracotta-50/60' : 'border-gray-100 bg-gray-50'}">
       <div class="flex items-center justify-between gap-2">
@@ -242,7 +308,7 @@ function peopleCard(s, split) {
       <div class="flex items-start justify-between gap-2">
         <div>
           <h3 class="${cls.title}">Who owes what</h3>
-          <p class="${cls.sub}">Each dish carries its own share of tax and tip</p>
+          <p class="${cls.sub}">${s.receipt.evenSplit ? 'Everyone pays the same share of the whole bill' : 'Each dish carries its own share of tax and tip'}</p>
         </div>
         <span class="text-[10px] font-bold text-gray-500 shrink-0">Bill ${$c(split.totals.total)}</span>
       </div>
@@ -514,6 +580,30 @@ function billSheet() {
       close();
     },
   });
+}
+
+// Someone at the table without the app, so the even split divides by the right number.
+function guestSheet() {
+  const { el, close } = sheet({
+    title: 'Add a person',
+    subtitle: "For someone at the table who doesn't have Split",
+    icon: 'fa-user-plus',
+    body: `
+      <form data-submit="save" class="flex flex-col gap-2.5">
+        ${field('guestName', 'Name', '', 'required maxlength="30" placeholder="e.g. Jordan"')}
+        <button class="${cls.btn}"><i class="fa-solid fa-check"></i> Add to the split</button>
+      </form>`,
+  });
+  delegate(el, {
+    save: () => {
+      const name = el.querySelector('#guestName').value.trim();
+      if (!name) return;
+      store.dispatch({ type: 'member/join', member: { id: uid(), name, guest: true } });
+      close();
+      toast(`${name} added`, 'The bill is now split one more way.');
+    },
+  });
+  el.querySelector('#guestName').focus();
 }
 
 // --- Money actions ---

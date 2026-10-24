@@ -132,3 +132,15 @@ test('normalize forces synced numbers and names back to safe types', () => {
 test('unknown actions fail loudly', () => {
   assert.throws(() => reduce(start(), { type: 'nope' }), /Unknown action/);
 });
+
+test('turning on split evenly, or adding a person to it, clears paid marks', () => {
+  let s = start();
+  s = reduce(s, { type: 'receipt/set', receipt: { items: [{ id: 'r1', name: 'Fries', qty: 1, price: 12 }] }, at: 4 });
+  assert.equal(s.receipt.evenSplit, false);
+  s = reduce(s, { type: 'receipt/markPaid', memberId: 's', paid: true });
+  s = reduce(s, { type: 'receipt/update', patch: { evenSplit: true } });
+  assert.deepEqual(s.receipt.paid, {});
+  s = reduce(s, { type: 'receipt/markPaid', memberId: 's', paid: true });
+  s = reduce(s, { type: 'member/join', member: { id: 'g', name: 'Jordan', guest: true }, at: 5 });
+  assert.deepEqual(s.receipt.paid, {});
+});

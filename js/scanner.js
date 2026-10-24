@@ -1,7 +1,9 @@
 // The full-screen camera scanner. Opens from the big camera button, the planner's "Scan menu"
 // and the split tab's "Scan receipt". It shows the live rear camera; the round button takes the
 // photo, and the photo button picks one from the library (also the fallback when there's no camera).
-// Screens register what to do with a result: onScanned('menu', (data) => ...).
+// Screens register what to do with a result: onScanned('menu', (data, opts) => ...).
+// For receipts, opts.even says whether to split the whole bill evenly between the group.
+// A handler can return { title, body } to replace the "scanned!" toast.
 import { demoMode } from './ai/client.js';
 import { scanMenu } from './ai/menu.js';
 import { scanReceipt } from './ai/receipt.js';
@@ -10,6 +12,11 @@ import { $, toast } from './ui.js';
 
 const handlers = {};
 export const onScanned = (kind, fn) => { handlers[kind] = fn; };
+
+// Remembered per phone: the last way this person chose to split a receipt.
+const EVEN_KEY = 'split.evenSplit';
+const loadEven = () => { try { return localStorage.getItem(EVEN_KEY) !== '0'; } catch { return true; } };
+const saveEven = (on) => { try { localStorage.setItem(EVEN_KEY, on ? '1' : '0'); } catch { /* private mode */ } };
 
 const LABEL = { menu: 'Scan menu', receipt: 'Scan receipt' };
 const HINT = {
@@ -30,6 +37,7 @@ export function openScanner(kind = 'receipt') {
   let stream = null;
   let busy = false;
   let state = 'starting'; // starting | live | still | nocam
+  let even = loadEven();
 
   const wrap = document.createElement('div');
   wrap.className = 'absolute inset-0 z-50 bg-black flex flex-col p-4 gap-3 safe-top safe-bottom animate-fade-in';
@@ -54,6 +62,13 @@ export function openScanner(kind = 'receipt') {
       </div>
     </div>
     <div class="grid grid-cols-2 gap-2">${modeBtn('menu', 'fa-book-open')}${modeBtn('receipt', 'fa-receipt')}</div>
+    <div id="scanSplit" class="flex items-center gap-2 text-white">
+      <span class="text-[11px] font-semibold text-white/70 shrink-0">Then split</span>
+      <div class="flex-1 grid grid-cols-2 gap-1 p-1 rounded-2xl bg-white/10" role="group" aria-label="How to split the receipt">
+        <button data-act="even" data-on="1" class="py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-equals"></i> Evenly</button>
+        <button data-act="even" data-on="" class="py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5"><i class="fa-solid fa-hand-pointer"></i> By item</button>
+      </div>
+    </div>
     <div class="grid grid-cols-3 items-center">
       <button data-act="pick" class="justify-self-start flex flex-col items-center gap-1 text-white text-xs font-semibold" aria-label="Choose a photo">
         <span class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-lg"><i class="fa-regular fa-image"></i></span>Photos
@@ -81,6 +96,14 @@ export function openScanner(kind = 'receipt') {
       b.classList.toggle('bg-white/10', !on);
       b.classList.toggle('text-white', !on);
       b.classList.toggle('border-white/40', !on);
+    });
+    $('#scanSplit', wrap).classList.toggle('hidden', kind !== 'receipt');
+    wrap.querySelectorAll('[data-act="even"]').forEach((b) => {
+      const on = !!b.dataset.on === even;
+      b.setAttribute('aria-pressed', on);
+      b.classList.toggle('bg-white', on);
+      b.classList.toggle('text-espresso', on);
+      b.classList.toggle('text-white', !on);
     });
     video.classList.toggle('hidden', state !== 'live' && state !== 'starting');
     still.classList.toggle('hidden', state !== 'still');
@@ -124,8 +147,9 @@ export function openScanner(kind = 'receipt') {
     try {
       const data = kind === 'menu' ? await scanMenu(photo) : await scanReceipt(photo);
       close();
-      await handlers[kind]?.(data);
-      toast(kind === 'menu' ? 'Menu scanned!' : 'Receipt scanned!', data.demo ? 'Demo mode: sample data' : 'Check the items look right', 'ok');
+      const msg = await handlers[kind]?.(data, { even: kind === 'receipt' && even });
+      toast(msg?.title ?? (kind === 'menu' ? 'Menu scanned!' : 'Receipt scanned!'),
+        msg?.body ?? (data.demo ? 'Demo mode: sample data' : 'Check the items look right'), 'ok');
     } catch (e) {
       console.error(e);
       busy = false;
@@ -143,6 +167,11 @@ export function openScanner(kind = 'receipt') {
     if (act === 'mode') {
       kind = btn.dataset.kind;
       if (state === 'live') status(HINT[kind]);
+      paint();
+    }
+    if (act === 'even') {
+      even = !!btn.dataset.on;
+      saveEven(even);
       paint();
     }
     if (act === 'sample') run(null);

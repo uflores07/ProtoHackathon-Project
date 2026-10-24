@@ -12,7 +12,7 @@
 //   plan:    { restaurant: { name, address, mapsUrl, cuisine } | null, menu: [MenuItem], settings, order: [{ itemId, qty, forMemberId }], demo },
 //   live:    { items: { [liveId]: { id, name, price, qty, claims: { [memberId]: true }, addedAt } } },
 //   receipt: null | { restaurant, items: [{ id, name, qty, price }], subtotal, discount, tax, serviceCharge, tip, tipPct,
-//                     total, currency, notes, warnings: [], demo, scannedAt,
+//                     total, currency, notes, warnings: [], demo, scannedAt, evenSplit,
 //                     claims: { [itemId]: { [memberId]: true } }, payerId, paid: { [memberId]: true }, finalizedAt, summary },
 // }
 // Place    = { id, name, address, cuisine, priceLevel, estCostPerPerson, distanceKm, dietOptions: [], rating, why, mapsUrl, sourceUrl }
@@ -86,7 +86,7 @@ function normalizeReceipt(r) {
   return {
     restaurant: '', subtotal: 0, discount: 0, tax: 0, serviceCharge: 0, tip: 0, tipPct: DEFAULT_SETTINGS.tipPct,
     total: 0, currency: 'CAD', notes: '', demo: false, scannedAt: null, payerId: null, finalizedAt: null, summary: null,
-    ...r, items: arr(r.items), warnings: arr(r.warnings), claims, paid: { ...obj(r.paid) },
+    ...r, items: arr(r.items), warnings: arr(r.warnings), claims, paid: { ...obj(r.paid) }, evenSplit: r.evenSplit === true,
   };
 }
 
@@ -100,7 +100,7 @@ const sameName = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? 
 
 // "Paid" means paid the amount shown at the time. If the bill changes before Finish, everyone's
 // share may change, so payments have to be marked again.
-const MONEY_FIELDS = ['items', 'subtotal', 'discount', 'tax', 'serviceCharge', 'tip', 'tipPct', 'total', 'payerId'];
+const MONEY_FIELDS = ['items', 'evenSplit', 'subtotal', 'discount', 'tax', 'serviceCharge', 'tip', 'tipPct', 'total', 'payerId'];
 function billChanged(s) {
   if (s.receipt && !s.receipt.finalizedAt) s.receipt.paid = {};
 }
@@ -124,6 +124,8 @@ const handlers = {
       color: Object.keys(s.members).length % 8, ...old, ...a.member,
       id: a.member.id, joinedAt: old?.joinedAt ?? a.at,
     };
+    // A new person changes everyone's even share, so old "paid" marks no longer match.
+    if (!old && s.receipt?.evenSplit) billChanged(s);
   },
   'member/update': (s, a) => { if (s.members[a.id]) Object.assign(s.members[a.id], a.patch); },
   'member/remove': (s, a) => {
