@@ -1,0 +1,26 @@
+body {
+  font-family: 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+.font-display { font-family: 'Outfit', sans-serif; }
+
+/* Hide scrollbars for a clean app look */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Scanner laser line */
+@keyframes scanLaser {
+  0% { top: 0%; opacity: 0.8; }
+  50% { top: 90%; opacity: 1; }
+  100% { top: 0%; opacity: 0.8; }
+}
+.animate-laser { animation: scanLaser 2s ease-in-out infinite; }
+
+/* Keep content clear of the notch and home bar on phones */
+.safe-top { padding-top: env(safe-area-inset-top, 0px); }
+.safe-bottom { padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px)); }
+
+/* Phones zoom into inputs under 16px; keep the small look but stop the zoom */
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px !important; }
+}

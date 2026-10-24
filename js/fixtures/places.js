@@ -1,0 +1,12 @@
+// What the AI returns for a restaurant search, used in demo mode. Same shape as js/ai/places.js PLACE.
+// Made-up places for the demo; the real search returns real restaurants.
+export const PLACES = [
+  { name: 'Trattoria Bella', address: '1180 Pinetree Way, Coquitlam, BC', cuisine: 'Italian', priceLevel: 2, estCostPerPerson: 22, distanceKm: 1.8, dietOptions: ['vegetarian', 'vegan', 'halal', 'gluten_free'], rating: 4.5, why: 'Big menu with veg, halal and gluten-free plates, and shareable pizzas.', sourceUrl: '' },
+  { name: 'El Taquero Taco Bar', address: '2929 Barnet Hwy, Coquitlam, BC', cuisine: 'Mexican', priceLevel: 1, estCostPerPerson: 16, distanceKm: 3.2, dietOptions: ['vegetarian', 'vegan', 'gluten_free', 'nut_free'], rating: 4.3, why: 'Cheap, quick, and corn tortillas keep most tacos gluten-free.', sourceUrl: '' },
+  { name: 'Urban Ramen Bar', address: '552 Clarke Rd, Coquitlam, BC', cuisine: 'Japanese', priceLevel: 2, estCostPerPerson: 21, distanceKm: 4.1, dietOptions: ['vegetarian', 'vegan'], rating: 4.6, why: 'Vegan broth on request; one of the best-rated bowls nearby.', sourceUrl: '' },
+  { name: 'Saffron Grill House', address: '1032 Austin Ave, Coquitlam, BC', cuisine: 'Middle Eastern', priceLevel: 2, estCostPerPerson: 19, distanceKm: 2.6, dietOptions: ['vegetarian', 'vegan', 'halal', 'gluten_free'], rating: 4.4, why: 'Fully halal kitchen with big platters made for sharing.', sourceUrl: '' },
+  { name: 'Golden Wok Kitchen', address: '3025 Lougheed Hwy, Coquitlam, BC', cuisine: 'Chinese', priceLevel: 1, estCostPerPerson: 15, distanceKm: 5.4, dietOptions: ['vegetarian'], rating: 4.0, why: 'Family-style dishes stretch a small budget.', sourceUrl: '' },
+  { name: 'Sakura Sushi & Grill', address: '405 North Rd, Coquitlam, BC', cuisine: 'Japanese', priceLevel: 3, estCostPerPerson: 34, distanceKm: 6.8, dietOptions: ['gluten_free'], rating: 4.7, why: 'Gluten-free soy sauce and great sashimi, but pricey.', sourceUrl: '' },
+  { name: 'Burger Social', address: '2850 Shaughnessy St, Port Coquitlam, BC', cuisine: 'Burgers', priceLevel: 2, estCostPerPerson: 20, distanceKm: 7.5, dietOptions: ['vegetarian', 'halal', 'gluten_free'], rating: 4.2, why: 'Halal beef and lettuce-wrap buns.', sourceUrl: '' },
+  { name: 'Spice Route Curry House', address: '1110 Westwood St, Coquitlam, BC', cuisine: 'Indian', priceLevel: 2, estCostPerPerson: 18, distanceKm: 3.9, dietOptions: ['vegetarian', 'vegan', 'halal', 'gluten_free', 'nut_free'], rating: 4.5, why: 'Marks every dish for nuts, gluten and dairy.', sourceUrl: '' },
+];

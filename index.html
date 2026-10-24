@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Split</title>
+  <meta name="description" content="Plan the order, split the bill fairly. Snap the receipt and everyone pays for what they ate.">
+
+  <!-- Phone app setup: lets iPhone and Android add Split to the home screen -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#C73F22">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Split">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="js/tailwind-config.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body class="h-full flex items-center justify-center sm:p-4 bg-slate-900 overflow-hidden">
+
+  <!-- On a laptop the app sits in a phone frame (for judges); on a phone it fills the screen. -->
+  <div class="relative w-full h-[100dvh] sm:h-[840px] sm:max-h-[95vh] sm:max-w-[400px] bg-black sm:rounded-[50px] sm:p-3 sm:shadow-2xl sm:ring-1 ring-slate-700/50 flex flex-col overflow-hidden">
+    <div class="hidden sm:flex justify-center items-center pt-1 pb-2 z-40">
+      <div class="w-20 h-4 bg-slate-800 rounded-full flex items-center justify-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+        <div class="w-8 h-1 bg-slate-700 rounded-full"></div>
+      </div>
+    </div>
+
+    <div id="app" class="relative w-full h-full bg-creamBg sm:rounded-[38px] overflow-hidden flex flex-col">
+
+      <!-- HEADER -->
+      <header class="relative bg-gradient-to-r from-terracotta-600 via-amberWarm-600 to-terracotta-700 text-white z-20 shrink-0 overflow-hidden shadow-md safe-top">
+        <div class="absolute inset-0 opacity-20 mix-blend-overlay">
+          <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop&q=80" class="w-full h-full object-cover" alt="">
+        </div>
+        <div class="relative px-4 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-sm">
+              <i class="fa-solid fa-utensils text-sm"></i>
+            </div>
+            <div>
+              <h1 class="font-display font-extrabold text-base tracking-tight leading-none drop-shadow-xs">Split</h1>
+              <span id="groupName" class="text-[9px] font-bold text-amber-200 tracking-wider uppercase">Plan • Split • Settle</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button data-click="people" class="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 flex items-center justify-center transition-all shadow-sm relative active:scale-95" aria-label="Invite friends">
+              <i class="fa-solid fa-user-group text-xs"></i>
+              <span id="memberCount" class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-sage-500 text-[8px] font-extrabold flex items-center justify-center border border-white">1</span>
+            </button>
+            <button data-click="people" id="sessionChip" class="bg-white/20 backdrop-blur-md hover:bg-white/30 border border-white/30 text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm active:scale-95 transition-all" aria-label="Group code">
+              <i class="fa-solid fa-qrcode text-[9px] text-amber-300"></i><span id="sessionCode">-----</span>
+            </button>
+            <button data-click="settings" class="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 flex items-center justify-center transition-all shadow-sm active:scale-95" aria-label="Settings">
+              <i class="fa-solid fa-gear text-xs"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- TOAST -->
+      <div id="toast" class="absolute top-16 left-4 right-4 z-[60] transform -translate-y-24 opacity-0 transition-all duration-300 pointer-events-none" role="status" aria-live="polite">
+        <div class="bg-espresso text-white text-xs px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 border border-slate-700/50">
+          <i id="toastIcon" class="fa-solid fa-circle-check text-sage-500 text-sm"></i>
+          <div>
+            <p id="toastTitle" class="font-bold leading-tight"></p>
+            <p id="toastMsg" class="text-[10px] text-gray-300 leading-tight"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREENS (one per tab; each is filled in by js/screens/<tab>.js) -->
+      <main id="main" class="flex-1 overflow-y-auto no-scrollbar p-3.5 pb-28 z-10">
+        <section id="screen-group" class="hidden flex-col gap-3.5"></section>
+        <section id="screen-planner" class="hidden flex-col gap-3.5"></section>
+        <section id="screen-split" class="hidden flex-col gap-3.5"></section>
+        <section id="screen-ledger" class="hidden flex-col gap-3.5"></section>
+        <noscript><p class="text-xs text-espresso">Split needs JavaScript turned on.</p></noscript>
+      </main>
+
+      <!-- BOTTOM NAV -->
+      <nav id="appNav" class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-100/80 px-1 pt-2 safe-bottom flex items-center justify-between z-30">
+        <button data-click="tab" data-tab="group" id="nav-group" class="flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+          <i class="fa-solid fa-people-group text-sm"></i><span class="text-[8px] font-bold">Group</span>
+        </button>
+        <button data-click="tab" data-tab="planner" id="nav-planner" class="flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+          <i class="fa-solid fa-wand-magic-sparkles text-sm"></i><span class="text-[8px] font-bold">Planner</span>
+        </button>
+        <div class="relative -top-4 px-1">
+          <button data-click="scan" class="w-13 h-13 rounded-full bg-gradient-to-tr from-terracotta-500 via-amberWarm-500 to-terracotta-600 text-white shadow-lg shadow-terracotta-500/30 flex items-center justify-center active:scale-90 transition-all ring-4 ring-creamBg" aria-label="Scan a menu or receipt">
+            <i class="fa-solid fa-camera text-lg"></i>
+          </button>
+        </div>
+        <button data-click="tab" data-tab="split" id="nav-split" class="flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+          <i class="fa-solid fa-receipt text-sm"></i><span class="text-[8px] font-bold">Fair Split</span>
+        </button>
+        <button data-click="tab" data-tab="ledger" id="nav-ledger" class="flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+          <i class="fa-solid fa-wallet text-sm"></i><span class="text-[8px] font-bold">Ledger</span>
+        </button>
+      </nav>
+
+      <!-- Bottom sheets and the scanner open in here -->
+      <div id="sheetRoot"></div>
+    </div>
+  </div>
+</body>
+</html>

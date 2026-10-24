@@ -1,0 +1,10 @@
+{
+  "name": "split",
+  "private": true,
+  "description": "Split: plan the order, split the bill fairly. A phone web app (PWA) hosted on GitHub Pages.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python3 -m http.server 8080"
+  }
+}

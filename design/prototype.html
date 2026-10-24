@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split - Interactive Mobile App Prototype</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        terracotta: {
+                            50: '#FDF7F5',
+                            100: '#FBECE8',
+                            200: '#F7D4CC',
+                            300: '#F1B2A3',
+                            400: '#E9846E',
+                            500: '#E05638', // Primary Warm Terracotta
+                            600: '#C73F22',
+                            700: '#A12F18',
+                            800: '#812816',
+                            900: '#692416'
+                        },
+                        amberWarm: {
+                            100: '#FEF3C7',
+                            400: '#FBBF24',
+                            500: '#F59E0B', // Warm Amber Accent
+                            600: '#D97706'
+                        },
+                        sage: {
+                            50: '#ECFDF5',
+                            100: '#D1FAE5',
+                            300: '#6EE7B7',
+                            500: '#10B981', // Sage Green Accent
+                            600: '#059669',
+                            800: '#065F46'
+                        },
+                        creamBg: '#FAF7F2',
+                        espresso: '#1F2937'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        display: ['Outfit', 'Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .font-display {
+            font-family: 'Outfit', sans-serif;
+        }
+        /* Custom scrollbar hiding for clean app UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Laser Animation for Scanner */
+        @keyframes scanLaser {
+            0% { top: 0%; opacity: 0.8; }
+            50% { top: 90%; opacity: 1; }
+            100% { top: 0%; opacity: 0.8; }
+        }
+        .animate-laser {
+            animation: scanLaser 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="h-full flex items-center justify-center p-0 sm:p-4 bg-slate-900 overflow-x-hidden">
+
+    <!-- OUTSIDE PHONE MOCKUP SHELL -->
+    <div class="relative w-full max-w-[400px] h-full max-h-[850px] sm:h-[840px] bg-black sm:rounded-[50px] p-3 shadow-2xl ring-1 ring-slate-700/50 flex flex-col overflow-hidden">
+        
+        <!-- Mobile Speaker & Notch Header -->
+        <div class="hidden sm:flex justify-center items-center pt-1 pb-2 z-40">
+            <div class="w-20 h-4 bg-slate-800 rounded-full flex items-center justify-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-slate-900"></div>
+                <div class="w-8 h-1 bg-slate-700 rounded-full"></div>
+            </div>
+        </div>
+
+        <!-- MAIN MOBILE PHONE CONTAINER FRAME -->
+        <div class="relative w-full h-full bg-creamBg sm:rounded-[38px] overflow-hidden flex flex-col justify-between shadow-inner">
+            
+            <!-- PHONE STATUS BAR -->
+            <div class="bg-white/80 backdrop-blur-md px-6 pt-2 pb-1 flex justify-between items-center text-[11px] font-bold text-espresso z-30 shrink-0 border-b border-orange-100/50">
+                <span>9:41</span>
+                <div class="flex items-center gap-1.5 text-xs">
+                    <i class="fa-solid fa-signal"></i>
+                    <i class="fa-solid fa-wifi"></i>
+                    <i class="fa-solid fa-battery-full text-sage-600"></i>
+                </div>
+            </div>
+
+            <!-- APP HEADER WITH FOOD BANNER BACKGROUND -->
+            <div class="relative bg-gradient-to-r from-terracotta-600 via-amberWarm-600 to-terracotta-700 text-white z-20 shrink-0 overflow-hidden shadow-md">
+                <!-- Food Visual Image Background Banner -->
+                <div class="absolute inset-0 opacity-20 mix-blend-overlay">
+                    <img src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&auto=format&fit=crop&q=80" class="w-full h-full object-cover" alt="Food Banner">
+                </div>
+
+                <div class="relative px-4 py-3 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shadow-sm">
+                            <i class="fa-solid fa-utensils text-sm"></i>
+                        </div>
+                        <div>
+                            <h1 class="font-display font-extrabold text-base tracking-tight leading-none text-white drop-shadow-xs">Split</h1>
+                            <span class="text-[9px] font-bold text-amber-200 tracking-wider uppercase">Plan • Split • Direct Pay</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Squad Friends Quick Access -->
+                        <button onclick="openFriendsModal()" class="w-8 h-8 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 text-white flex items-center justify-center transition-all shadow-sm relative active:scale-95">
+                            <i class="fa-solid fa-user-group text-xs"></i>
+                            <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-sage-500 text-white text-[8px] font-extrabold flex items-center justify-center border border-white">4</span>
+                        </button>
+                        
+                        <!-- Direct Wallet Balance Chip -->
+                        <button onclick="switchTab('wallet')" class="bg-white/20 backdrop-blur-md hover:bg-white/30 border border-white/30 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm active:scale-95 transition-all">
+                            <i class="fa-solid fa-bolt text-[9px] text-amber-300"></i>
+                            <span id="headerBalanceChip">$145.50</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOAST NOTIFICATION CONTAINER -->
+            <div id="toast" class="absolute top-16 left-4 right-4 z-50 transform -translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+                <div class="bg-espresso text-white text-xs px-3.5 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 border border-slate-700/50">
+                    <i id="toastIcon" class="fa-solid fa-circle-check text-sage-500 text-sm"></i>
+                    <div>
+                        <p id="toastTitle" class="font-bold leading-tight"></p>
+                        <p id="toastMsg" class="text-[10px] text-gray-300 leading-tight"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAIN SCROLLABLE APP CONTENT VIEWS -->
+            <main class="flex-1 overflow-y-auto no-scrollbar p-3.5 pb-24 z-10">
+
+                <!-- ================= 1. GROUP DECISION ENGINE & SQUAD SYNC ================= -->
+                <section id="screen-groupFinder" class="screen-content flex flex-col gap-3.5">
+                    
+                    <!-- Squad Banner -->
+                    <div class="bg-gradient-to-br from-espresso via-terracotta-900 to-amberWarm-600 rounded-3xl p-3.5 text-white shadow-md flex flex-col gap-1.5 relative overflow-hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1">
+                                <i class="fa-solid fa-people-group"></i> Group Decision Engine
+                            </span>
+                            <span class="text-[9px] bg-white/20 px-2 py-0.5 rounded-full text-white font-bold backdrop-blur-xs">Coquitlam Crew</span>
+                        </div>
+                        <h2 class="font-display font-extrabold text-base leading-snug">Split Fair Place Finder</h2>
+                        <p class="text-[10px] text-orange-100/90 leading-relaxed">
+                            Combines everyone's budget caps, cuisine picks, distance radius, and dietary rules to rank places that satisfy <b>everyone</b>.
+                        </p>
+                    </div>
+
+                    <!-- Member Preferences Sync Accordion -->
+                    <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <div>
+                                <h3 class="font-display font-bold text-xs text-espresso">Squad Member Preferences (4/4 Synced)</h3>
+                                <p class="text-[9px] text-gray-400">Strict cap filter excludes places exceeding ANY budget</p>
+                            </div>
+                            <button onclick="openFriendsModal()" class="text-[10px] text-terracotta-600 font-bold hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-sliders"></i> Edit
+                            </button>
+                        </div>
+
+                        <!-- Member Preference Chips Grid -->
+                        <div class="grid grid-cols-2 gap-2" id="squadPreferencesList">
+                            <!-- Alex (You) -->
+                            <div class="p-2 rounded-2xl bg-orange-50/70 border border-orange-100 flex flex-col gap-0.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-[11px] text-espresso">Alex (You)</span>
+                                    <span class="text-[9px] font-extrabold text-terracotta-600">$25 Cap</span>
+                                </div>
+                                <p class="text-[8px] text-gray-500">🍕 Italian • 5 km</p>
+                                <span class="text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold w-fit">🌱 Vegetarian</span>
+                            </div>
+                            <!-- Sam -->
+                            <div class="p-2 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-0.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-[11px] text-espresso">Sam Miller</span>
+                                    <span class="text-[9px] font-extrabold text-amberWarm-600">$30 Cap</span>
+                                </div>
+                                <p class="text-[8px] text-gray-500">🌮 Mexican • 8 km</p>
+                                <span class="text-[8px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-md font-bold w-fit">🥜 Nut Allergy</span>
+                            </div>
+                            <!-- Jordan -->
+                            <div class="p-2 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-0.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-[11px] text-espresso">Jordan Chen</span>
+                                    <span class="text-[9px] font-extrabold text-sage-600">$20 Cap</span>
+                                </div>
+                                <p class="text-[8px] text-gray-500">🍝 Any • 4 km</p>
+                                <span class="text-[8px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded-md font-bold w-fit">🕌 Halal Only</span>
+                            </div>
+                            <!-- Taylor -->
+                            <div class="p-2 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-0.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-[11px] text-espresso">Taylor Reed</span>
+                                    <span class="text-[9px] font-extrabold text-purple-600">$35 Cap</span>
+                                </div>
+                                <p class="text-[8px] text-gray-500">🍣 Japanese • 10 km</p>
+                                <span class="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold w-fit">🌾 Gluten-Free</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ranked Top Choices & Live Voting Section -->
+                    <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-display font-bold text-xs text-espresso">Top Algorithmic Matches</h3>
+                                <p class="text-[9px] text-gray-400">Vote on top choices to lock winner into Planner</p>
+                            </div>
+                            <span class="text-[8px] font-bold bg-amberWarm-100 text-amberWarm-800 px-2 py-0.5 rounded-full">
+                                3 Passed Cap Filter
+                            </span>
+                        </div>
+
+                        <!-- Ranked Top 3 Places Cards -->
+                        <div class="flex flex-col gap-2.5" id="topThreePlacesContainer">
+                            <!-- Place 1 -->
+                            <div class="border border-terracotta-200 bg-gradient-to-br from-white to-orange-50/40 rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-xs">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-5 h-5 rounded-full bg-terracotta-500 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0">1</span>
+                                        <div>
+                                            <h4 class="font-display font-bold text-xs text-espresso">Trattoria Bella Italian</h4>
+                                            <p class="text-[9px] text-gray-500">1.8 km away • ⏱️ 12 mins • <a href="https://maps.google.com" target="_blank" class="text-terracotta-600 font-bold underline"><i class="fa-solid fa-location-dot"></i> Map</a></p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-sage-100 text-sage-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                        💯 100% Match
+                                    </span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-1 text-[9px] text-gray-600 bg-white/80 p-1.5 rounded-xl border border-gray-100">
+                                    <div><b>Est. Cost/Person:</b> <span class="text-terracotta-600 font-bold">$18.50</span></div>
+                                    <div><b>Dietary Safety:</b> <span class="text-sage-600 font-bold">Halal + Veg + GF</span></div>
+                                </div>
+
+                                <!-- Live Vote Row -->
+                                <div class="flex items-center justify-between pt-1">
+                                    <div class="flex items-center gap-1.5 text-[9px] text-gray-500">
+                                        <span class="font-bold text-espresso">Votes:</span>
+                                        <div class="flex -space-x-1.5 overflow-hidden">
+                                            <img class="inline-block h-4 w-4 rounded-full ring-1 ring-white" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Alex">
+                                            <img class="inline-block h-4 w-4 rounded-full ring-1 ring-white" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" alt="Sam">
+                                            <img class="inline-block h-4 w-4 rounded-full ring-1 ring-white" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Jordan">
+                                        </div>
+                                        <span class="font-extrabold text-terracotta-600 text-[10px] ml-0.5" id="place1VoteCount">3 Votes</span>
+                                    </div>
+                                    <button onclick="castGroupVote(1)" id="voteBtn1" class="px-2.5 py-1 rounded-xl bg-terracotta-500 text-white font-bold text-[9px] shadow-xs active:scale-95 transition-all">
+                                        <i class="fa-solid fa-thumbs-up"></i> Voted
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Place 2 -->
+                            <div class="border border-gray-200 bg-white rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-xs">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-5 h-5 rounded-full bg-amberWarm-500 text-white font-extrabold text-[10px] flex items-center justify-center shrink-0">2</span>
+                                        <div>
+                                            <h4 class="font-display font-bold text-xs text-espresso">El Taquero Taco Bar</h4>
+                                            <p class="text-[9px] text-gray-500">3.2 km away • ⏱️ 18 mins • <a href="https://maps.google.com" target="_blank" class="text-terracotta-600 font-bold underline"><i class="fa-solid fa-location-dot"></i> Map</a></p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-amberWarm-100 text-amberWarm-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                        ⚡ 85% Match
+                                    </span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-1 text-[9px] text-gray-600 bg-gray-50 p-1.5 rounded-xl border border-gray-100">
+                                    <div><b>Est. Cost/Person:</b> <span class="text-terracotta-600 font-bold">$16.00</span></div>
+                                    <div><b>Dietary Safety:</b> <span class="text-sage-600 font-bold">Nut-Free + Veg</span></div>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-1">
+                                    <div class="flex items-center gap-1.5 text-[9px] text-gray-500">
+                                        <span class="font-bold text-espresso">Votes:</span>
+                                        <div class="flex -space-x-1.5 overflow-hidden">
+                                            <img class="inline-block h-4 w-4 rounded-full ring-1 ring-white" src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80" alt="Taylor">
+                                        </div>
+                                        <span class="font-extrabold text-gray-600 text-[10px] ml-0.5" id="place2VoteCount">1 Vote</span>
+                                    </div>
+                                    <button onclick="castGroupVote(2)" id="voteBtn2" class="px-2.5 py-1 rounded-xl bg-gray-100 text-espresso font-bold text-[9px] hover:bg-gray-200 active:scale-95 transition-all">
+                                        <i class="fa-regular fa-thumbs-up"></i> Vote
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lock Winner Action Button -->
+                        <button onclick="lockWinningRestaurant()" class="w-full py-2.5 rounded-2xl bg-gradient-to-r from-terracotta-500 to-amberWarm-500 text-white font-bold text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 mt-1">
+                            <i class="fa-solid fa-lock text-xs"></i>
+                            <span>Lock Winner & Send to Planner</span>
+                        </button>
+                    </div>
+
+                </section>
+
+                <!-- ================= 2. ORDER PLANNER & LIVE TAB ================= -->
+                <section id="screen-planner" class="screen-content hidden flex-col gap-3.5">
+                    
+                    <!-- Sub-Toggle for Planner vs Live Tab -->
+                    <div class="flex p-1 bg-white/90 backdrop-blur-md rounded-2xl border border-orange-100 shadow-sm">
+                        <button onclick="togglePlannerSubTab('plan')" id="subtab-plan" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-terracotta-500 text-white shadow-sm">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Order Planner
+                        </button>
+                        <button onclick="togglePlannerSubTab('live')" id="subtab-live" class="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:text-espresso">
+                            <i class="fa-solid fa-utensils mr-1"></i> Live Tab
+                        </button>
+                    </div>
+
+                    <!-- SUB-VIEW A: ORDER PLANNER -->
+                    <div id="planner-mode-plan" class="flex flex-col gap-3">
+                        <div class="bg-gradient-to-br from-terracotta-500 via-terracotta-600 to-amberWarm-600 rounded-3xl p-3.5 text-white shadow-lg flex flex-col gap-2 relative overflow-hidden">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[9px] font-bold uppercase tracking-wider text-orange-100">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Split AI Pre-Planner
+                                    </span>
+                                    <h2 class="font-display font-bold text-base mt-0.5">Plan Before You Order</h2>
+                                </div>
+                                <span class="text-[9px] bg-black/20 px-2 py-0.5 rounded-lg text-orange-100 font-mono backdrop-blur-sm">Tax+Tip Included</span>
+                            </div>
+                            <p class="text-[10px] text-orange-100/90 leading-relaxed">
+                                Enter group parameters to generate an optimal order that won't blow your budget!
+                            </p>
+                            <button onclick="openCameraModal('menu')" class="w-full py-2 bg-white text-terracotta-600 font-bold rounded-2xl shadow-sm text-xs flex items-center justify-center gap-1.5 hover:bg-orange-50 active:scale-98 transition-all">
+                                <i class="fa-solid fa-camera text-terracotta-500 text-xs"></i>
+                                <span>Scan Restaurant Menu Photo</span>
+                            </button>
+                        </div>
+
+                        <!-- Budget & Settings Input Card -->
+                        <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="bg-gray-50 p-2 rounded-2xl border border-gray-100">
+                                    <label class="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Headcount</label>
+                                    <div class="flex items-center justify-between">
+                                        <button onclick="adjustHeadcount(-1)" class="w-6 h-6 rounded-lg bg-white border border-gray-200 text-espresso font-bold flex items-center justify-center active:scale-95 text-xs">-</button>
+                                        <span id="inputHeadcount" class="font-display font-extrabold text-sm text-espresso">4</span>
+                                        <button onclick="adjustHeadcount(1)" class="w-6 h-6 rounded-lg bg-white border border-gray-200 text-espresso font-bold flex items-center justify-center active:scale-95 text-xs">+</button>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 p-2 rounded-2xl border border-gray-100">
+                                    <label class="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Target ($)</label>
+                                    <div class="flex items-center">
+                                        <span class="text-gray-400 font-bold text-xs mr-1">$</span>
+                                        <input type="number" id="inputBudget" value="80" step="5" class="w-full bg-transparent font-display font-extrabold text-sm text-espresso focus:outline-none" onchange="updateCalculations()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Mode Selector -->
+                            <div class="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-2xl">
+                                <button onclick="setOrderMode('family')" id="modeFamily" class="py-1 rounded-xl text-[10px] font-bold transition-all bg-white text-terracotta-600 shadow-xs">
+                                    <i class="fa-solid fa-bowl-food mr-1"></i> Family Spread
+                                </button>
+                                <button onclick="setOrderMode('individual')" id="modeIndividual" class="py-1 rounded-xl text-[10px] font-bold transition-all text-gray-500 hover:text-espresso">
+                                    <i class="fa-solid fa-user mr-1"></i> Individual
+                                </button>
+                            </div>
+
+                            <!-- Hunger & Tip Row -->
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Hunger</label>
+                                    <select id="selectHunger" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-1.5 text-[10px] font-semibold text-gray-700 focus:outline-none">
+                                        <option value="light">🥗 Light Apps</option>
+                                        <option value="normal" selected>🍽️ Normal Meal</option>
+                                        <option value="starving">🔥 Starving</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">Tip Included</label>
+                                    <select id="selectTip" onchange="updateCalculations()" class="w-full bg-gray-50 border border-gray-200 rounded-xl p-1.5 text-[10px] font-semibold text-gray-700 focus:outline-none">
+                                        <option value="15">15% Standard</option>
+                                        <option value="18" selected>18% Rec.</option>
+                                        <option value="20">20% Generous</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recommendation Results Card -->
+                        <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-2.5">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h4 id="restaurantName" class="font-display font-bold text-xs text-espresso">Trattoria Bella Italian</h4>
+                                    <p class="text-[9px] text-gray-400">Scanned Menu Recommendation</p>
+                                </div>
+                                <span id="budgetVerdict" class="text-[9px] px-2 py-0.5 rounded-full bg-sage-100 text-sage-800 font-bold">✨ Under Budget</span>
+                            </div>
+
+                            <div id="recommendedDishesContainer" class="flex flex-col gap-1.5"></div>
+
+                            <div class="bg-orange-50/60 p-2.5 rounded-2xl border border-orange-100 flex flex-col gap-1 text-[10px]">
+                                <div class="flex justify-between text-gray-600">
+                                    <span>Subtotal:</span>
+                                    <span id="summarySubtotal" class="font-bold text-espresso">$62.00</span>
+                                </div>
+                                <div class="flex justify-between text-gray-600">
+                                    <span>Tax (8.8%):</span>
+                                    <span id="summaryTax" class="font-bold text-espresso">$5.46</span>
+                                </div>
+                                <div class="flex justify-between text-gray-600">
+                                    <span>Tip (<span id="summaryTipPct">18</span>%):</span>
+                                    <span id="summaryTip" class="font-bold text-espresso">$11.16</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-1.5 border-t border-orange-200/60 font-display font-extrabold text-xs text-espresso">
+                                    <span>Projected Total:</span>
+                                    <span id="summaryTotal" class="text-terracotta-600 text-sm">$78.62</span>
+                                </div>
+                            </div>
+
+                            <button onclick="togglePlannerSubTab('live')" class="w-full py-2 rounded-2xl bg-terracotta-500 hover:bg-terracotta-600 text-white font-bold text-xs shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5">
+                                <span>Lock Plan & Start Live Tab</span>
+                                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- SUB-VIEW B: LIVE TAB AT THE TABLE -->
+                    <div id="planner-mode-live" class="hidden flex-col gap-3">
+                        <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3">
+                            <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                                <div>
+                                    <h3 class="font-display font-bold text-xs text-espresso">Live Table Session</h3>
+                                    <p class="text-[9px] text-gray-400">Tap items as dishes arrive at the table</p>
+                                </div>
+                                <span class="animate-pulse flex h-2 w-2 relative">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-sage-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-sage-500"></span>
+                                </span>
+                            </div>
+
+                            <div class="flex flex-col gap-2" id="liveOrderItemsList"></div>
+
+                            <!-- Live Running Totals Grid -->
+                            <div class="bg-gray-50 rounded-2xl p-2.5 border border-gray-100 flex flex-col gap-2">
+                                <span class="text-[9px] font-bold text-gray-400 uppercase">Live Running Totals</span>
+                                <div class="grid grid-cols-4 gap-1 text-center">
+                                    <div class="bg-white p-1.5 rounded-xl border border-gray-100">
+                                        <p class="text-[8px] font-bold text-gray-500">Alex</p>
+                                        <p id="alexTotal" class="font-display font-extrabold text-[11px] text-terracotta-600">$0.00</p>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded-xl border border-gray-100">
+                                        <p class="text-[8px] font-bold text-gray-500">Sam</p>
+                                        <p id="samTotal" class="font-display font-extrabold text-[11px] text-amberWarm-600">$0.00</p>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded-xl border border-gray-100">
+                                        <p class="text-[8px] font-bold text-gray-500">Jordan</p>
+                                        <p id="jordanTotal" class="font-display font-extrabold text-[11px] text-sage-600">$0.00</p>
+                                    </div>
+                                    <div class="bg-white p-1.5 rounded-xl border border-gray-100">
+                                        <p class="text-[8px] font-bold text-gray-500">Taylor</p>
+                                        <p id="taylorTotal" class="font-display font-extrabold text-[11px] text-purple-600">$0.00</p>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center pt-1 border-t border-gray-200 text-xs">
+                                    <span class="font-bold text-gray-600">Table Total:</span>
+                                    <span id="liveRunningTotal" class="font-display font-extrabold text-terracotta-600">$0.00</span>
+                                </div>
+                            </div>
+
+                            <button onclick="finishAndSplit()" class="w-full py-2.5 rounded-2xl bg-amberWarm-500 hover:bg-amberWarm-600 text-white font-bold text-xs shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-receipt"></i>
+                                <span>Meal Finished — Scan Receipt to Split</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ================= 3. FAIR SPLIT RECEIPT SPLITTER ================= -->
+                <section id="screen-splitter" class="screen-content hidden flex-col gap-3.5">
+                    
+                    <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-display font-bold text-xs text-espresso">Receipt Parsed (#8842)</h3>
+                                <p class="text-[9px] text-gray-400">Trattoria Bella • Tax & Tip split proportionally</p>
+                            </div>
+                            <button onclick="openCameraModal('receipt')" class="text-[9px] bg-orange-100 text-terracotta-600 font-bold px-2 py-1 rounded-xl">
+                                Re-scan
+                            </button>
+                        </div>
+
+                        <!-- Scanned Items List -->
+                        <div class="flex flex-col gap-1.5" id="receiptItemsContainer"></div>
+
+                        <!-- Direct In-App Wallet Pay Banner -->
+                        <div class="p-3 rounded-2xl bg-gradient-to-r from-terracotta-500 to-amberWarm-600 text-white shadow-xs flex flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-1.5">
+                                    <i class="fa-solid fa-bolt text-amber-300 text-xs"></i>
+                                    <span class="font-bold text-xs">Split Direct Pay</span>
+                                </div>
+                                <span class="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Your Share: $19.65</span>
+                            </div>
+                            <p class="text-[9px] text-orange-100 leading-tight">Settle immediately using your in-app Split wallet balance without bank transfers.</p>
+                            <button onclick="payShareDirectly(19.65)" class="w-full py-2 rounded-xl bg-white text-terracotta-600 font-bold text-xs shadow-xs active:scale-98 transition-all">
+                                Pay $19.65 Share via Direct Balance
+                            </button>
+                        </div>
+
+                        <!-- Audit Card: Planned vs Actual -->
+                        <div class="bg-gray-50 p-2.5 rounded-2xl border border-gray-100 flex flex-col gap-1.5">
+                            <span class="text-[9px] font-bold text-gray-400 uppercase">Budget vs Reality Audit</span>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-500">Planned Budget:</span>
+                                <span class="font-bold text-espresso">$80.00</span>
+                            </div>
+                            <div class="flex justify-between text-xs">
+                                <span class="text-gray-500">Actual Total:</span>
+                                <span class="font-bold text-terracotta-600">$74.80</span>
+                            </div>
+                            <div class="flex justify-between text-xs text-sage-600 font-bold pt-1 border-t border-gray-200">
+                                <span>Variance:</span>
+                                <span>🎉 Came in $5.20 under budget!</span>
+                            </div>
+                        </div>
+
+                        <!-- Group Request List -->
+                        <div class="flex flex-col gap-1.5">
+                            <span class="text-[9px] font-bold text-gray-400 uppercase">Send Split Requests to Squad</span>
+                            <div id="paymentRequestsList" class="flex flex-col gap-1.5"></div>
+                            <button onclick="sendAllPaymentRequests()" class="w-full py-2 rounded-2xl bg-espresso text-white font-bold text-xs shadow-xs active:scale-98 transition-all mt-1">
+                                Send All Payment Requests
+                            </button>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ================= 4. IN-APP WALLET & DIRECT PAY ================= -->
+                <section id="screen-wallet" class="screen-content hidden flex-col gap-3.5">
+                    
+                    <!-- Wallet Main Card -->
+                    <div class="bg-gradient-to-br from-terracotta-600 via-amberWarm-600 to-terracotta-700 rounded-3xl p-4 text-white shadow-xl flex flex-col gap-3 relative overflow-hidden">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-amber-200 flex items-center gap-1">
+                                <i class="fa-solid fa-wallet"></i> Split Direct Wallet
+                            </span>
+                            <span class="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Instant Splits</span>
+                        </div>
+
+                        <div>
+                            <p class="text-[10px] text-orange-100">Available Balance</p>
+                            <h2 class="font-display font-extrabold text-2xl tracking-tight text-white walletBalanceVal">$145.50</h2>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 pt-1">
+                            <button onclick="openAddMoneyModal()" class="py-2 rounded-xl bg-white text-terracotta-600 font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-plus text-[10px]"></i>
+                                <span>Add Funds</span>
+                            </button>
+                            <button onclick="withdrawFunds()" class="py-2 rounded-xl bg-black/20 hover:bg-black/30 text-white font-bold text-xs border border-white/20 active:scale-95 transition-all flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                <span>Cash Out</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Activity History -->
+                    <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-2.5">
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <h3 class="font-display font-bold text-xs text-espresso">Split Wallet Activity</h3>
+                            <span class="text-[9px] text-gray-400">Live Log</span>
+                        </div>
+
+                        <div class="flex flex-col gap-2" id="walletActivityList">
+                            <div class="flex items-center justify-between p-2 rounded-2xl bg-gray-50 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-xl bg-sage-100 text-sage-600 flex items-center justify-center text-xs">
+                                        <i class="fa-solid fa-arrow-down-left"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-espresso">Top-Up via Apple Pay</p>
+                                        <p class="text-[9px] text-gray-400">Today, 10:15 AM</p>
+                                    </div>
+                                </div>
+                                <span class="font-display font-extrabold text-sage-600">+$50.00</span>
+                            </div>
+
+                            <div class="flex items-center justify-between p-2 rounded-2xl bg-gray-50 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-xl bg-terracotta-100 text-terracotta-600 flex items-center justify-center text-xs">
+                                        <i class="fa-solid fa-utensils"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-espresso">Paid Share (El Taquero)</p>
+                                        <p class="text-[9px] text-gray-400">Yesterday, 8:30 PM</p>
+                                    </div>
+                                </div>
+                                <span class="font-display font-extrabold text-terracotta-600">-$22.40</span>
+                            </div>
+
+                            <div class="flex items-center justify-between p-2 rounded-2xl bg-gray-50 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-xl bg-sage-100 text-sage-600 flex items-center justify-center text-xs">
+                                        <i class="fa-solid fa-user-plus"></i>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-espresso">Received from Sam</p>
+                                        <p class="text-[9px] text-gray-400">Oct 20, 2026</p>
+                                    </div>
+                                </div>
+                                <span class="font-display font-extrabold text-sage-600">+$18.70</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- ================= 5. RECEIPT ARCHIVE & CUSTOM GROUPS ================= -->
+                <section id="screen-receipts" class="screen-content hidden flex-col gap-3.5">
+                    
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-display font-bold text-sm text-espresso">Receipt Archive</h2>
+                            <p class="text-[9px] text-gray-400">Grouped dining history & tag folders</p>
+                        </div>
+                        <button onclick="openNewGroupModal()" class="px-2.5 py-1 rounded-xl bg-terracotta-500 text-white font-bold text-[10px] shadow-xs active:scale-95 transition-all flex items-center gap-1">
+                            <i class="fa-solid fa-folder-plus text-[9px]"></i>
+                            <span>New Group</span>
+                        </button>
+                    </div>
+
+                    <!-- Custom Tag Group Pills Bar -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1" id="receiptGroupFilters"></div>
+
+                    <!-- Receipt Cards List -->
+                    <div class="flex flex-col gap-2.5" id="receiptCardsContainer"></div>
+
+                </section>
+
+                <!-- ================= 6. GENERAL SPENDING TRACKER & GRAPH ================= -->
+                <section id="screen-analytics" class="screen-content hidden flex-col gap-3.5">
+                    
+                    <!-- Stats Overview Row -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-white p-3 rounded-2xl border border-orange-100 shadow-sm flex flex-col gap-0.5">
+                            <span class="text-[9px] font-bold uppercase text-gray-400">Total Spent</span>
+                            <h3 id="statTotalSpent" class="font-display font-extrabold text-lg text-espresso">$342.50</h3>
+                            <span class="text-[8px] text-sage-600 font-bold">📉 12% under monthly cap</span>
+                        </div>
+                        <div class="bg-white p-3 rounded-2xl border border-orange-100 shadow-sm flex flex-col gap-0.5">
+                            <span class="text-[9px] font-bold uppercase text-gray-400">Planner Savings</span>
+                            <h3 id="statBudgetSaved" class="font-display font-extrabold text-lg text-sage-600">$28.40</h3>
+                            <span class="text-[8px] text-terracotta-600 font-bold">✨ Saved via AI pre-plan</span>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Graph Card -->
+                    <div class="bg-white rounded-3xl p-3.5 border border-orange-100 shadow-sm flex flex-col gap-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <div>
+                                <h3 class="font-display font-bold text-xs text-espresso">Dining Spend vs Cap Target</h3>
+                                <p id="graphSubtitle" class="text-[9px] text-gray-400">Oct 2026 Weekly Breakdown</p>
+                            </div>
+                            <!-- Timeframe Switcher -->
+                            <div class="flex bg-gray-100 p-0.5 rounded-xl text-[9px]">
+                                <button onclick="setTimeframe('1M')" id="tf-1M" class="px-2 py-0.5 rounded-lg bg-white text-espresso shadow-xs font-bold">1M</button>
+                                <button onclick="setTimeframe('3M')" id="tf-3M" class="px-2 py-0.5 rounded-lg text-gray-500 font-bold">3M</button>
+                                <button onclick="setTimeframe('YTD')" id="tf-YTD" class="px-2 py-0.5 rounded-lg text-gray-500 font-bold">YTD</button>
+                            </div>
+                        </div>
+
+                        <!-- Bar Graph Container -->
+                        <div class="h-32 w-full pt-2 flex items-end gap-3 px-2 border-b border-gray-100" id="graphContainer"></div>
+
+                        <div class="flex items-center justify-center gap-4 text-[9px] font-bold text-gray-500">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-terracotta-500"></span> Actual Spend</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-sage-300"></span> Target Cap</span>
+                        </div>
+                    </div>
+
+                </section>
+
+            </main>
+
+            <!-- ================= MOBILE BOTTOM NAVIGATION BAR ================= -->
+            <nav class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-orange-100/80 px-1 py-2 flex items-center justify-between z-30">
+                
+                <!-- 1. Group Sync Tab -->
+                <button onclick="switchTab('groupFinder')" id="nav-groupFinder" class="nav-btn flex-1 flex flex-col items-center gap-0.5 text-terracotta-500 transition-all">
+                    <i class="fa-solid fa-people-group text-sm"></i>
+                    <span class="text-[8px] font-bold">Group Sync</span>
+                </button>
+
+                <!-- 2. Planner Tab -->
+                <button onclick="switchTab('planner')" id="nav-planner" class="nav-btn flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+                    <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                    <span class="text-[8px] font-bold">Planner</span>
+                </button>
+
+                <!-- 3. CENTRAL FLOATING CAMERA SCANNER BUTTON -->
+                <div class="relative -top-4 px-1">
+                    <button onclick="openCameraModal('auto')" class="w-13 h-13 rounded-full bg-gradient-to-tr from-terracotta-500 via-amberWarm-500 to-terracotta-600 text-white shadow-lg shadow-terracotta-500/30 flex items-center justify-center transform active:scale-90 transition-all ring-4 ring-creamBg">
+                        <i class="fa-solid fa-camera text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- 4. Fair Split Tab -->
+                <button onclick="switchTab('splitter')" id="nav-splitter" class="nav-btn flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+                    <i class="fa-solid fa-receipt text-sm"></i>
+                    <span class="text-[8px] font-bold">Fair Split</span>
+                </button>
+
+                <!-- 5. Direct Wallet Tab -->
+                <button onclick="switchTab('wallet')" id="nav-wallet" class="nav-btn flex-1 flex flex-col items-center gap-0.5 text-gray-400 hover:text-espresso transition-all">
+                    <i class="fa-solid fa-wallet text-sm"></i>
+                    <span class="text-[8px] font-bold">Wallet</span>
+                </button>
+
+            </nav>
+
+            <!-- ================= FRIENDS & SQUADS MANAGEMENT MODAL ================= -->
+            <div id="friendsModal" class="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex-col justify-end transition-all">
+                <div class="bg-white rounded-t-3xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200 max-h-[85%] overflow-y-auto no-scrollbar">
+                    
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-xl bg-terracotta-100 text-terracotta-600 flex items-center justify-center text-xs font-bold">
+                                <i class="fa-solid fa-user-group"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-display font-bold text-xs text-espresso">Squad & Friend Preferences</h3>
+                                <p class="text-[9px] text-gray-400">Coquitlam Crew Session</p>
+                            </div>
+                        </div>
+                        <button onclick="closeFriendsModal()" class="text-gray-400 hover:text-espresso text-sm p-1">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Friends List -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between p-2 rounded-2xl bg-orange-50/50 border border-orange-100 text-xs">
+                            <div class="flex items-center gap-2">
+                                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" class="w-7 h-7 rounded-full object-cover">
+                                <div>
+                                    <p class="font-bold text-espresso text-[11px]">Sam Miller</p>
+                                    <p class="text-[8px] text-sage-600 font-bold">🌮 Mexican • Nut Allergy</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-bold text-terracotta-600 bg-white px-2 py-0.5 rounded-xl border border-orange-200">$30 Cap</span>
+                        </div>
+
+                        <div class="flex items-center justify-between p-2 rounded-2xl bg-gray-50 border border-gray-100 text-xs">
+                            <div class="flex items-center gap-2">
+                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" class="w-7 h-7 rounded-full object-cover">
+                                <div>
+                                    <p class="font-bold text-espresso text-[11px]">Jordan Chen</p>
+                                    <p class="text-[8px] text-purple-600 font-bold">🍝 Any • Halal Strict</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-bold text-terracotta-600 bg-white px-2 py-0.5 rounded-xl border border-gray-200">$20 Cap</span>
+                        </div>
+
+                        <div class="flex items-center justify-between p-2 rounded-2xl bg-gray-50 border border-gray-100 text-xs">
+                            <div class="flex items-center gap-2">
+                                <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80" class="w-7 h-7 rounded-full object-cover">
+                                <div>
+                                    <p class="font-bold text-espresso text-[11px]">Taylor Reed</p>
+                                    <p class="text-[8px] text-amberWarm-600 font-bold">🍣 Japanese • Gluten-Free</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-bold text-terracotta-600 bg-white px-2 py-0.5 rounded-xl border border-gray-200">$35 Cap</span>
+                        </div>
+                    </div>
+
+                    <button onclick="closeFriendsModal(); switchTab('groupFinder');" class="w-full py-2 rounded-2xl bg-terracotta-500 text-white font-bold text-xs shadow-xs active:scale-98 transition-all">
+                        Launch Group Decision Engine
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= CAMERA / VISION AI MODAL ================= -->
+            <div id="cameraModal" class="absolute inset-0 z-50 bg-black hidden flex-col justify-between p-4 transition-all">
+                <div class="flex justify-between items-center text-white z-10">
+                    <button onclick="closeCameraModal()" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <span id="scanTypeLabel" class="font-display font-bold text-xs bg-white/20 px-3 py-1 rounded-full uppercase tracking-wider">
+                        Menu Scanner
+                    </span>
+                    <button onclick="toggleFlash()" id="flashBtn" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-xs">
+                        <i class="fa-solid fa-bolt"></i>
+                    </button>
+                </div>
+
+                <!-- Camera Viewfinder -->
+                <div class="relative flex-1 my-3 rounded-3xl overflow-hidden border-2 border-dashed border-white/40 flex items-center justify-center">
+                    <img id="cameraPreviewImg" src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80" class="w-full h-full object-cover opacity-80" alt="Camera Live Feed">
+                    
+                    <!-- Scanning Laser Line -->
+                    <div id="ocrLaser" class="absolute left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amberWarm-400 to-transparent shadow-lg animate-laser hidden"></div>
+
+                    <div class="absolute bottom-3 left-3 right-3 bg-black/60 backdrop-blur-md p-2 rounded-2xl border border-white/20 text-center">
+                        <span id="scanStatusBadge" class="text-[10px] text-white font-bold">
+                            Align photo inside viewfinder
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Camera Controls -->
+                <div class="flex flex-col gap-2 z-10">
+                    <div class="flex justify-center gap-2 bg-white/10 backdrop-blur-md p-1 rounded-full text-[10px] font-bold text-white">
+                        <button onclick="setScanMode('menu')" id="scanModeMenu" class="px-3 py-1 rounded-full bg-terracotta-500 text-white">1. Scan Menu</button>
+                        <button onclick="setScanMode('receipt')" id="scanModeReceipt" class="px-3 py-1 rounded-full text-white/80">2. Scan Receipt</button>
+                    </div>
+
+                    <button onclick="executeScanProcess()" class="w-full py-3 rounded-2xl bg-gradient-to-r from-terracotta-500 to-amberWarm-500 text-white font-extrabold text-xs shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-expand"></i>
+                        <span>Capture & Parse Vision AI</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ================= ADD MONEY MODAL ================= -->
+            <div id="addMoneyModal" class="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs hidden flex-col justify-end transition-all">
+                <div class="bg-white rounded-t-3xl p-4 flex flex-col gap-3 animate-in slide-in-from-bottom duration-200">
+                    <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                        <h3 class="font-display font-bold text-xs text-espresso">Add Money to Split</h3>
+                        <button onclick="closeAddMoneyModal()" class="text-gray-400 text-sm"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="selectPresetTopUp(20)" class="py-2 rounded-xl bg-gray-100 hover:bg-orange-50 text-espresso font-bold text-xs border border-gray-200">$20</button>
+                        <button onclick="selectPresetTopUp(50)" class="py-2 rounded-xl bg-gray-100 hover:bg-orange-50 text-espresso font-bold text-xs border border-gray-200">$50</button>
+                        <button onclick="selectPresetTopUp(100)" class="py-2 rounded-xl bg-gray-100 hover:bg-orange-50 text-espresso font-bold text-xs border border-gray-200">$100</button>
+                    </div>
+
+                    <div class="bg-gray-50 p-2.5 rounded-2xl border border-gray-200 flex items-center">
+                        <span class="text-gray-400 font-bold text-xs mr-1">$</span>
+                        <input type="number" id="customTopUpInput" value="50" class="w-full bg-transparent font-display font-extrabold text-sm text-espresso focus:outline-none">
+                    </div>
+
+                    <button onclick="confirmTopUp()" class="w-full py-2.5 rounded-2xl bg-terracotta-500 text-white font-bold text-xs shadow-xs active:scale-98 transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-brands fa-apple text-sm"></i>
+                        <span>Confirm Top-Up via Apple Pay</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        let headcount = 4;
+        let activeReceiptGroup = 'All';
+        let walletBalance = 145.50;
+        let currentVoteChoice = 1;
+
+        let plannerDishes = [
+            { id: 1, name: "Margherita Pizza", price: 18.00, icon: "pizza-slice" },
+            { id: 2, name: "Truffle Garlic Fries", price: 12.00, icon: "bowl-food" },
+            { id: 3, name: "Rigatoni Pasta", price: 22.00, icon: "plate-wheat" },
+            { id: 4, name: "Lemonade Pitcher", price: 10.00, icon: "glass-water" }
+        ];
+
+        let receiptGroups = [
+            { id: 'All', name: 'All Receipts' },
+            { id: 'Weekend Dinners', name: '🎉 Weekend Dinners' },
+            { id: 'Work Lunches', name: '💼 Work Lunches' },
+            { id: 'Vacation', name: '🏔️ Vacation' }
+        ];
+
+        let archiveReceipts = [
+            { id: 101, name: "Trattoria Bella Italian", date: "Oct 22, 2026", group: "Weekend Dinners", total: 74.80, headcount: 4, items: 4, status: "Fully Settled", statusColor: "sage" },
+            { id: 102, name: "Urban Ramen Bar", date: "Oct 18, 2026", group: "Work Lunches", total: 42.50, headcount: 2, items: 3, status: "Fully Settled", statusColor: "sage" },
+            { id: 103, name: "El Taquero Tacos", date: "Oct 12, 2026", group: "Weekend Dinners", total: 110.20, headcount: 5, items: 9, status: "1 Pending", statusColor: "amberWarm" }
+        ];
+
+        window.onload = function() {
+            renderPlannerDishes();
+            renderLiveDishes();
+            renderReceiptItems();
+            renderPaymentRequests();
+            renderReceiptGroupFilters();
+            renderReceiptCards();
+            renderGraph('1M');
+            updateWalletBalanceDisplay();
+            updateCalculations();
+        };
+
+        function openFriendsModal() {
+            document.getElementById('friendsModal').classList.remove('hidden');
+            document.getElementById('friendsModal').classList.add('flex');
+        }
+
+        function closeFriendsModal() {
+            document.getElementById('friendsModal').classList.remove('flex');
+            document.getElementById('friendsModal').classList.add('hidden');
+        }
+
+        function castGroupVote(placeId) {
+            currentVoteChoice = placeId;
+            for (let i = 1; i <= 2; i++) {
+                const btn = document.getElementById(`voteBtn${i}`);
+                if (i === placeId) {
+                    btn.className = "px-2.5 py-1 rounded-xl bg-terracotta-500 text-white font-bold text-[9px] shadow-xs active:scale-95 transition-all";
+                    btn.innerHTML = `<i class="fa-solid fa-thumbs-up"></i> Voted`;
+                } else {
+                    btn.className = "px-2.5 py-1 rounded-xl bg-gray-100 text-espresso font-bold text-[9px] hover:bg-gray-200 active:scale-95 transition-all";
+                    btn.innerHTML = `<i class="fa-regular fa-thumbs-up"></i> Vote`;
+                }
+            }
+            showToast("Vote Registered!", `Voted for Place #${placeId}`, "fa-solid fa-check text-sage-500");
+        }
+
+        function lockWinningRestaurant() {
+            let winName = currentVoteChoice === 1 ? "Trattoria Bella Italian" : "El Taquero Taco Bar";
+            document.getElementById('restaurantName').innerText = winName;
+            switchTab('planner');
+            showToast("Winner Locked!", `Loaded ${winName} into Planner`, "fa-solid fa-lock text-sage-500");
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.screen-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-terracotta-500');
+                btn.classList.add('text-gray-400');
+            });
+
+            const targetScreen = document.getElementById(`screen-${tabId}`);
+            const targetNav = document.getElementById(`nav-${tabId}`);
+
+            if (targetScreen) targetScreen.classList.remove('hidden');
+            if (targetNav) {
+                targetNav.classList.remove('text-gray-400');
+                targetNav.classList.add('text-terracotta-500');
+            }
+        }
+
+        function togglePlannerSubTab(sub) {
+            const planBtn = document.getElementById('subtab-plan');
+            const liveBtn = document.getElementById('subtab-live');
+            const planView = document.getElementById('planner-mode-plan');
+            const liveView = document.getElementById('planner-mode-live');
+
+            if (sub === 'plan') {
+                planBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-terracotta-500 text-white shadow-sm";
+                liveBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:text-espresso";
+                planView.classList.remove('hidden');
+                liveView.classList.add('hidden');
+            } else {
+                liveBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all bg-terracotta-500 text-white shadow-sm";
+                planBtn.className = "flex-1 py-1.5 rounded-xl text-xs font-bold transition-all text-gray-500 hover:text-espresso";
+                liveView.classList.remove('hidden');
+                planView.classList.add('hidden');
+            }
+        }
+
+        function showToast(title, msg, iconClass = "fa-solid fa-circle-check text-sage-500") {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastTitle').innerText = title;
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('-translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-24', 'opacity-0');
+            }, 2200);
+        }
+
+        /* WALLET LOGIC */
+        function updateWalletBalanceDisplay() {
+            document.getElementById('headerBalanceChip').innerText = `$${walletBalance.toFixed(2)}`;
+            document.querySelectorAll('.walletBalanceVal').forEach(el => {
+                el.innerText = `$${walletBalance.toFixed(2)}`;
+            });
+        }
+
+        function openAddMoneyModal() {
+            document.getElementById('addMoneyModal').classList.remove('hidden');
+            document.getElementById('addMoneyModal').classList.add('flex');
+        }
+
+        function closeAddMoneyModal() {
+            document.getElementById('addMoneyModal').classList.remove('flex');
+            document.getElementById('addMoneyModal').classList.add('hidden');
+        }
+
+        function selectPresetTopUp(amt) {
+            document.getElementById('customTopUpInput').value = amt;
+        }
+
+        function confirmTopUp() {
+            let amt = parseFloat(document.getElementById('customTopUpInput').value) || 0;
+            if (amt <= 0) return;
+            walletBalance += amt;
+            updateWalletBalanceDisplay();
+            closeAddMoneyModal();
+            showToast("Balance Added!", `+$${amt.toFixed(2)} loaded via Apple Pay`, "fa-solid fa-bolt text-amberWarm-500");
+        }
+
+        function withdrawFunds() {
+            showToast("Cash Out", "Funds transferred to bank", "fa-solid fa-building-columns text-sage-500");
+        }
+
+        function payShareDirectly(amt) {
+            if (walletBalance < amt) {
+                showToast("Insufficient Balance", "Please top up wallet", "fa-solid fa-triangle-exclamation text-amberWarm-500");
+                openAddMoneyModal();
+                return;
+            }
+            walletBalance -= amt;
+            updateWalletBalanceDisplay();
+            showToast("Meal Paid!", `Paid $${amt.toFixed(2)} share directly`, "fa-solid fa-circle-check text-sage-500");
+        }
+
+        function adjustHeadcount(delta) {
+            headcount = Math.max(1, headcount + delta);
+            document.getElementById('inputHeadcount').innerText = headcount;
+            updateCalculations();
+        }
+
+        function setOrderMode(mode) {
+            const fam = document.getElementById('modeFamily');
+            const ind = document.getElementById('modeIndividual');
+            if (mode === 'family') {
+                fam.className = "py-1 rounded-xl text-[10px] font-bold transition-all bg-white text-terracotta-600 shadow-xs";
+                ind.className = "py-1 rounded-xl text-[10px] font-bold transition-all text-gray-500 hover:text-espresso";
+            } else {
+                ind.className = "py-1 rounded-xl text-[10px] font-bold transition-all bg-white text-terracotta-600 shadow-xs";
+                fam.className = "py-1 rounded-xl text-[10px] font-bold transition-all text-gray-500 hover:text-espresso";
+            }
+        }
+
+        function updateCalculations() {
+            let budgetInput = parseFloat(document.getElementById('inputBudget').value) || 80;
+            let subtotal = plannerDishes.reduce((acc, d) => acc + d.price, 0);
+            let tax = subtotal * 0.088;
+            let tipPct = parseInt(document.getElementById('selectTip').value) || 18;
+            let tip = subtotal * (tipPct / 100);
+            let total = subtotal + tax + tip;
+
+            document.getElementById('summarySubtotal').innerText = `$${subtotal.toFixed(2)}`;
+            document.getElementById('summaryTax').innerText = `$${tax.toFixed(2)}`;
+            document.getElementById('summaryTipPct').innerText = tipPct;
+            document.getElementById('summaryTip').innerText = `$${tip.toFixed(2)}`;
+            document.getElementById('summaryTotal').innerText = `$${total.toFixed(2)}`;
+
+            const verdict = document.getElementById('budgetVerdict');
+            if (total <= budgetInput) {
+                verdict.className = "text-[9px] px-2 py-0.5 rounded-full bg-sage-100 text-sage-800 font-bold";
+                verdict.innerText = "✨ Under Budget";
+            } else {
+                verdict.className = "text-[9px] px-2 py-0.5 rounded-full bg-amberWarm-100 text-amberWarm-800 font-bold";
+                verdict.innerText = `⚠️ +$${(total - budgetInput).toFixed(2)} Over`;
+            }
+        }
+
+        function renderPlannerDishes() {
+            const container = document.getElementById('recommendedDishesContainer');
+            container.innerHTML = '';
+            plannerDishes.forEach(dish => {
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-2 rounded-2xl bg-gray-50 border border-gray-100">
+                        <div class="flex items-center gap-2">
+                            <div class="w-6 h-6 rounded-lg bg-orange-100 text-terracotta-600 flex items-center justify-center text-[10px] font-bold">
+                                <i class="fa-solid fa-${dish.icon}"></i>
+                            </div>
+                            <span class="font-bold text-xs text-espresso">${dish.name}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-display font-bold text-xs text-espresso">$${dish.price.toFixed(2)}</span>
+                            <button onclick="swapDish(${dish.id})" class="p-1 text-gray-400 hover:text-terracotta-500 text-xs">
+                                <i class="fa-solid fa-shuffle"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function swapDish(id) {
+            const dish = plannerDishes.find(d => d.id === id);
+            if (dish) {
+                dish.price = +(dish.price * 0.9).toFixed(2);
+                renderPlannerDishes();
+                updateCalculations();
+                showToast("Dish Swapped", `Substituted for lower price item`, "fa-solid fa-shuffle text-amberWarm-500");
+            }
+        }
+
+        let liveTotals = { Alex: 0, Sam: 0, Jordan: 0, Taylor: 0 };
+        function renderLiveDishes() {
+            const container = document.getElementById('liveOrderItemsList');
+            container.innerHTML = '';
+            plannerDishes.forEach(d => {
+                container.innerHTML += `
+                    <div class="p-2 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs">
+                        <div>
+                            <p class="font-bold text-espresso">${d.name}</p>
+                            <p class="text-[9px] text-terracotta-600 font-bold">$${d.price.toFixed(2)}</p>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="claimLive('${d.name}', ${d.price}, 'Alex')" class="px-2 py-0.5 bg-terracotta-500 text-white rounded-md text-[8px] font-bold">Alex</button>
+                            <button onclick="claimLive('${d.name}', ${d.price}, 'Sam')" class="px-2 py-0.5 bg-amberWarm-500 text-white rounded-md text-[8px] font-bold">Sam</button>
+                            <button onclick="claimLive('${d.name}', ${d.price}, 'Jordan')" class="px-2 py-0.5 bg-sage-500 text-white rounded-md text-[8px] font-bold">Jordan</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function claimLive(item, price, person) {
+            liveTotals[person] += price;
+            document.getElementById(`${person.toLowerCase()}Total`).innerText = `$${liveTotals[person].toFixed(2)}`;
+            let grand = Object.values(liveTotals).reduce((a, b) => a + b, 0);
+            document.getElementById('liveRunningTotal').innerText = `$${grand.toFixed(2)}`;
+            showToast("Item Claimed", `${person} claimed ${item}`, "fa-solid fa-check text-sage-500");
+        }
+
+        function finishAndSplit() {
+            switchTab('splitter');
+            showToast("Receipt Scanned", "Proportional split calculated", "fa-solid fa-receipt text-sage-500");
+        }
+
+        function renderReceiptItems() {
+            const container = document.getElementById('receiptItemsContainer');
+            container.innerHTML = `
+                <div class="p-2 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between text-xs">
+                    <div>
+                        <p class="font-bold text-espresso">Margherita Pizza</p>
+                        <p class="text-[9px] text-gray-400">Claimed: <span class="text-terracotta-600 font-bold">Alex & Sam</span></p>
+                    </div>
+                    <span class="font-display font-bold text-espresso">$18.00</span>
+                </div>
+                <div class="p-2 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-between text-xs">
+                    <div>
+                        <p class="font-bold text-espresso">Truffle Garlic Fries</p>
+                        <p class="text-[9px] text-gray-400">Claimed: <span class="text-terracotta-600 font-bold">All Guests</span></p>
+                    </div>
+                    <span class="font-display font-bold text-espresso">$12.00</span>
+                </div>
+            `;
+        }
+
+        function renderPaymentRequests() {
+            const container = document.getElementById('paymentRequestsList');
+            container.innerHTML = `
+                <div class="flex items-center justify-between p-2 rounded-xl bg-gray-50 text-xs">
+                    <div>
+                        <p class="font-bold text-espresso">Sam (@sam-m)</p>
+                        <p class="text-[8px] text-amberWarm-600 font-semibold">Direct Pay Enabled</p>
+                    </div>
+                    <span class="font-display font-bold text-terracotta-600">$18.70</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-xl bg-gray-50 text-xs">
+                    <div>
+                        <p class="font-bold text-espresso">Jordan (@jordan-c)</p>
+                        <p class="text-[8px] text-amberWarm-600 font-semibold">Direct Pay Enabled</p>
+                    </div>
+                    <span class="font-display font-bold text-terracotta-600">$27.80</span>
+                </div>
+            `;
+        }
+
+        function sendAllPaymentRequests() {
+            showToast("Requests Sent", "Direct Pay links sent to group", "fa-solid fa-paper-plane text-sage-500");
+        }
+
+        function renderReceiptGroupFilters() {
+            const container = document.getElementById('receiptGroupFilters');
+            container.innerHTML = '';
+            receiptGroups.forEach(g => {
+                const isActive = activeReceiptGroup === g.id;
+                container.innerHTML += `
+                    <button onclick="filterReceiptsByGroup('${g.id}')" class="px-2.5 py-1 rounded-xl border text-[10px] font-bold shrink-0 transition-all ${
+                        isActive 
+                            ? 'bg-terracotta-500 text-white border-terracotta-500 shadow-xs' 
+                            : 'bg-white text-gray-600 border-gray-200'
+                    }">
+                        ${g.name}
+                    </button>
+                `;
+            });
+        }
+
+        function filterReceiptsByGroup(groupId) {
+            activeReceiptGroup = groupId;
+            renderReceiptGroupFilters();
+            renderReceiptCards();
+        }
+
+        function renderReceiptCards() {
+            const container = document.getElementById('receiptCardsContainer');
+            container.innerHTML = '';
+            const filtered = activeReceiptGroup === 'All' 
+                ? archiveReceipts 
+                : archiveReceipts.filter(r => r.group === activeReceiptGroup);
+
+            filtered.forEach(r => {
+                container.innerHTML += `
+                    <div class="bg-white rounded-2xl p-3 border border-orange-100 shadow-sm flex flex-col gap-1.5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="font-display font-bold text-xs text-espresso">${r.name}</h4>
+                                <p class="text-[9px] text-gray-400">${r.date} • ${r.headcount} Guests</p>
+                            </div>
+                            <span class="font-display font-extrabold text-xs text-terracotta-600">$${r.total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openNewGroupModal() {
+            const tag = prompt("Enter new Group / Tag name:");
+            if (tag) {
+                receiptGroups.push({ id: tag, name: `🏷️ ${tag}` });
+                renderReceiptGroupFilters();
+                showToast("Group Created", `Added '${tag}' tag`, "fa-solid fa-folder-plus text-sage-500");
+            }
+        }
+
+        function setTimeframe(tf) {
+            ['1M', '3M', 'YTD'].forEach(t => {
+                const btn = document.getElementById(`tf-${t}`);
+                if (t === tf) {
+                    btn.className = "px-2 py-0.5 rounded-lg bg-white text-espresso shadow-xs font-bold";
+                } else {
+                    btn.className = "px-2 py-0.5 rounded-lg text-gray-500 font-bold";
+                }
+            });
+            renderGraph(tf);
+        }
+
+        function renderGraph(tf) {
+            const container = document.getElementById('graphContainer');
+            let data = tf === '1M' 
+                ? [{ label: 'W1', spent: 65, cap: 80 }, { label: 'W2', spent: 92, cap: 85 }, { label: 'W3', spent: 74, cap: 80 }, { label: 'W4', spent: 110, cap: 100 }]
+                : [{ label: 'Aug', spent: 340, cap: 380 }, { label: 'Sep', spent: 410, cap: 400 }, { label: 'Oct', spent: 342, cap: 360 }];
+
+            let maxVal = Math.max(...data.map(d => Math.max(d.spent, d.cap)));
+            container.innerHTML = '';
+            data.forEach(d => {
+                let spentHeight = (d.spent / maxVal) * 100;
+                let capHeight = (d.cap / maxVal) * 100;
+
+                container.innerHTML += `
+                    <div class="flex-1 flex flex-col items-center h-full justify-end gap-1">
+                        <div class="w-full flex items-end justify-center gap-1 h-full">
+                            <div style="height: ${spentHeight}%;" class="w-2.5 rounded-t-md bg-terracotta-500"></div>
+                            <div style="height: ${capHeight}%;" class="w-2.5 rounded-t-md bg-sage-300 opacity-60"></div>
+                        </div>
+                        <span class="text-[8px] font-bold text-gray-400 mt-0.5">${d.label}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function openCameraModal(mode) {
+            if (mode !== 'auto') setScanMode(mode);
+            document.getElementById('cameraModal').classList.remove('hidden');
+            document.getElementById('cameraModal').classList.add('flex');
+        }
+
+        function closeCameraModal() {
+            document.getElementById('cameraModal').classList.remove('flex');
+            document.getElementById('cameraModal').classList.add('hidden');
+            document.getElementById('ocrLaser').classList.add('hidden');
+        }
+
+        function setScanMode(mode) {
+            const menuBtn = document.getElementById('scanModeMenu');
+            const receiptBtn = document.getElementById('scanModeReceipt');
+            if (mode === 'menu') {
+                menuBtn.className = "px-3 py-1 rounded-full bg-terracotta-500 text-white";
+                receiptBtn.className = "px-3 py-1 rounded-full text-white/80";
+                document.getElementById('cameraPreviewImg').src = "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80";
+            } else {
+                receiptBtn.className = "px-3 py-1 rounded-full bg-terracotta-500 text-white";
+                menuBtn.className = "px-3 py-1 rounded-full text-white/80";
+                document.getElementById('cameraPreviewImg').src = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80";
+            }
+        }
+
+        function toggleFlash() {
+            showToast("Flash Toggled", "", "fa-solid fa-bolt text-amberWarm-500");
+        }
+
+        function executeScanProcess() {
+            document.getElementById('ocrLaser').classList.remove('hidden');
+            document.getElementById('scanStatusBadge').innerText = "Vision AI Processing...";
+            setTimeout(() => {
+                closeCameraModal();
+                switchTab('planner');
+                showToast("Menu Scanned!", "Built optimal order spread", "fa-solid fa-wand-magic-sparkles text-sage-500");
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

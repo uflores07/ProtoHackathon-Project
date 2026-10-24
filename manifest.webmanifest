@@ -1,0 +1,16 @@
+{
+  "name": "Split: Plan & Fair Split",
+  "short_name": "Split",
+  "description": "Plan the order, split the bill fairly. Snap the receipt and everyone pays for what they ate.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF7F2",
+  "theme_color": "#C73F22",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
