@@ -3,6 +3,7 @@
 import { demoMode, getApiKey, setApiKey, usingServerKey } from './ai/client.js';
 import { hasMeal, saveMeal, wasDeleted } from './history.js';
 import { current, go, onTab, TABS } from './router.js';
+import { askCameraOnce } from './camera.js';
 import { openScanner } from './scanner.js';
 import * as group from './screens/group.js';
 import * as ledger from './screens/ledger.js';
@@ -111,6 +112,8 @@ function settingsSheet({ welcome = false } = {}) {
       if (!name) return;
       // The key field is only in Settings (gear icon), not in the first-run welcome sheet.
       if ($('#setKey', el)) setApiKey($('#setKey', el).value);
+      // Ask for the camera now, so the scanner can open straight onto the live view later.
+      if (welcome) askCameraOnce();
       close();
       await store.saveMe({ name, pay: { email: $('#setEmail', el).value.trim(), paypal: $('#setPaypal', el).value.trim(), venmo: $('#setVenmo', el).value.trim() } });
       toast('Saved', demoMode() ? 'Demo mode until you add an API key.' : 'Gemini is ready to read photos.');
