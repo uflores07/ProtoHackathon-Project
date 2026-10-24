@@ -275,6 +275,10 @@ async function boot() {
   if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {
     navigator.serviceWorker.register('sw.js');
   }
+  // Agentation feedback toolbar, for working on the UI with an AI agent. Localhost only, never on the live site.
+  if (['localhost', '127.0.0.1'].includes(location.hostname)) {
+    import('./dev/agentation.js').catch((e) => console.warn('Agentation did not load', e));
+  }
 }
 
 boot();
