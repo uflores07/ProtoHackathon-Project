@@ -1,8 +1,7 @@
-// Full-screen Settings: your profile, food preferences, how friends pay you back, saved friends,
-// the group, theme, AI status, install help, data and about. It sits at z-40 over the app, so the
-// usual z-50 bottom sheets open on top of it for edits.
+// Full-screen Settings: your profile, food preferences, how friends pay you back, theme, AI status,
+// install help, data and about (the group and friends are on the Group tab and its gear). It sits at
+// z-40 over the app, so the usual z-50 bottom sheets open on top of it for edits.
 import { demoMode } from '../ai/client.js';
-import { getFriend, listFriends, removeFriend, saveFriend } from '../friends.js';
 import { deleteMeals, listMeals } from '../history.js';
 import { dietLabel } from '../lib/rankPlaces.js';
 import { DIETS } from '../reducer.js';
@@ -15,7 +14,6 @@ const CUISINES = ['Any', 'Italian', 'Mexican', 'Japanese', 'Chinese', 'Korean', 
   'Middle Eastern', 'Mediterranean', 'Greek', 'American', 'French'];
 const PREFS = { budget: 30, cuisine: 'Any', distanceKm: 5, diet: [] };
 const THEME_LOOK = { system: ['System', 'fa-circle-half-stroke'], light: ['Light', 'fa-sun'], dark: ['Dark', 'fa-moon'] };
-const REPO = 'https://github.com/uflores07/ProtoHackathon-Project';
 
 const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -40,7 +38,6 @@ const section = (title, rows) => `
 
 const chip = (icon, tint) => `<span class="w-8 h-8 shrink-0 rounded-xl ${tint} flex items-center justify-center text-xs"><i class="${icon.startsWith('fa-brands') ? icon : `fa-solid ${icon}`}"></i></span>`;
 const chevron = '<i class="fa-solid fa-chevron-right text-[10px] text-gray-300 shrink-0"></i>';
-const badge = (text, tint) => `<span class="text-[8px] ${tint} px-1.5 py-0.5 rounded-md font-bold">${text}</span>`;
 
 // A row with `click` is a button with a chevron; without, it just shows something.
 function row({ icon, tint = 'bg-terracotta-100 text-terracotta-600', label, sub = '', value = '', click = '', attrs = '' }) {
@@ -56,19 +53,12 @@ function row({ icon, tint = 'bg-terracotta-100 text-terracotta-600', label, sub 
     : `<div class="${look}">${inner}</div>`;
 }
 
-const avatar = (name, member) => `<span class="w-8 h-8 shrink-0 rounded-xl ${color(member).solid} text-white font-display font-extrabold text-[11px] flex items-center justify-center">${initials(name)}</span>`;
-
-// Venmo isn't offered here: it doesn't work in Canada.
-const payBadges = (pay = {}) => [pay.email && 'e-Transfer', pay.paypal && 'PayPal']
-  .filter(Boolean).map((p) => badge(p, 'bg-sky-100 text-sky-700'));
-
 // People paste "paypal.me/name", the whole link or "@name"; PayPal.me names are just letters and numbers.
 const paypalName = (v) => String(v ?? '').trim()
   .replace(/^(https?:\/\/)?(www\.)?paypal\.me\//i, '').replace(/^@/, '').replace(/[/?#].*$/, '');
 const validPaypal = (name) => /^[A-Za-z0-9]{1,20}$/.test(name);
 const paypalUrl = (name) => `https://paypal.me/${encodeURIComponent(name)}`;
 const capital = (t) => t.charAt(0).toUpperCase() + t.slice(1);
-const dietBadges = (diet = []) => diet.map((d) => badge(esc(dietLabel(d)), 'bg-sage-100 text-sage-800 capitalize'));
 
 // ---- The page ----
 
@@ -108,51 +98,6 @@ function page() {
     }),
   ];
 
-  const friends = listFriends();
-  const friendRows = friends.map((f) => {
-    const badges = [...(s?.members[f.id] ? [badge('In this group', 'bg-terracotta-100 text-terracotta-600')] : []), ...payBadges(f.pay), ...dietBadges(f.diet)];
-    return `<button type="button" data-click="editFriend" data-id="${esc(f.id)}" class="w-full min-h-[3.25rem] flex items-center gap-3 px-3.5 py-2.5 text-left hover:bg-orange-50/60 active:bg-orange-50 transition-colors">
-      ${avatar(f.name, s?.members[f.id])}
-      <span class="flex-1 min-w-0">
-        <span class="block text-xs font-bold text-espresso truncate">${esc(f.name)}</span>
-        ${badges.length ? `<span class="flex flex-wrap gap-1 mt-0.5">${badges.join('')}</span>` : ''}
-      </span>
-      ${chevron}
-    </button>`;
-  });
-  if (!friends.length) {
-    friendRows.push('<p class="px-3.5 py-3 text-[10px] text-gray-500 leading-snug">Save the people you eat with often, then add them to any group in one tap.</p>');
-  }
-  friendRows.push(row({ icon: 'fa-user-plus', tint: 'bg-sage-100 text-sage-600', label: 'Add a friend', click: 'addFriend' }));
-
-  // You first, then everyone else in the order they joined.
-  const people = s ? Object.values(s.members)
-    .sort((a, b) => (b.id === me.id) - (a.id === me.id) || (a.joinedAt ?? 0) - (b.joinedAt ?? 0))
-    .map((m) => {
-      const mine = m.id === me.id;
-      const saved = !mine && getFriend(m.id);
-      const kind = mine ? 'You' : `${m.guest ? 'Guest' : 'Uses Split'}${saved ? ' • Saved friend' : ''}`;
-      const actions = [
-        !mine && !saved ? `<button type="button" data-click="saveMember" data-id="${esc(m.id)}" class="h-9 px-3 rounded-full bg-sage-100 text-sage-800 text-[10px] font-bold flex items-center gap-1.5 active:scale-95 transition-all"><i class="fa-solid fa-user-plus"></i> Save as friend</button>` : '',
-        m.guest ? `<button type="button" data-click="removeMember" data-id="${esc(m.id)}" class="h-9 px-3 rounded-full bg-terracotta-50 text-terracotta-600 text-[10px] font-bold flex items-center gap-1.5 active:scale-95 transition-all"><i class="fa-solid fa-user-minus"></i> Remove from group</button>` : '',
-      ].filter(Boolean);
-      return `<div class="px-3.5 py-2.5 flex items-start gap-3">
-        ${avatar(m.name, m)}
-        <div class="flex-1 min-w-0 flex flex-col gap-1.5">
-          <div><p class="text-xs font-bold text-espresso truncate">${esc(m.name)}</p><p class="text-[10px] text-gray-500">${kind}</p></div>
-          ${actions.length ? `<div class="flex flex-wrap gap-1.5">${actions.join('')}</div>` : ''}
-        </div>
-      </div>`;
-    }) : [];
-  if (s && !people.length) people.push('<p class="px-3.5 py-3 text-[10px] text-gray-500">Nobody here yet. Add your name, then invite your group.</p>');
-
-  const group = s ? [
-    row({ icon: 'fa-pen', label: 'Group name', value: esc(s.name), click: 'editGroupName' }),
-    row({ icon: 'fa-qrcode', label: 'Invite people', value: `<span class="font-display font-extrabold tracking-widest text-espresso">${esc(s.id)}</span>`, click: 'invite' }),
-    row({ icon: 'fa-tower-broadcast', tint: 'bg-sage-100 text-sage-600', label: 'Live sync', value: store.synced ? 'Live between phones' : 'This phone only' }),
-    row({ icon: 'fa-rotate', tint: 'bg-amberWarm-100 text-amberWarm-600', label: 'Start a new meal', sub: 'Same people, fresh plan and receipt', click: 'newMeal' }),
-  ] : [];
-
   const appearance = `<div class="p-2"><div class="grid grid-cols-3 gap-1 bg-gray-100 rounded-2xl p-1" role="group" aria-label="Theme">
     ${THEMES.map((t) => `<button type="button" data-click="theme" data-value="${t}" data-key="theme-${t}" aria-pressed="${t === theme}"
       class="h-10 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${t === theme ? 'bg-white text-espresso shadow-sm' : 'text-gray-500'}">
@@ -170,9 +115,6 @@ function page() {
     profile,
     section('Food preferences', [food]),
     section('Getting paid back', payRows),
-    section('Friends', friendRows),
-    s ? section('People in this group', people) : '',
-    s ? section('Group', group) : '',
     section('Appearance', [appearance]),
     section('AI', [row({ icon: 'fa-wand-magic-sparkles', tint: 'bg-purple-100 text-purple-600', label: 'Reads menus and receipts', value: demoMode() ? 'Demo mode: sample data' : 'On' })]),
     section('Install', [install]),
@@ -182,11 +124,6 @@ function page() {
     ]),
     section('About', [
       row({ icon: 'fa-receipt', label: 'Split', sub: 'Plan the order, split the bill fairly.', value: 'Version 1.0' }),
-      `<a href="${REPO}" target="_blank" rel="noopener" class="w-full min-h-[3.25rem] flex items-center gap-3 px-3.5 py-2.5 hover:bg-orange-50/60 active:bg-orange-50 transition-colors">
-        ${chip('fa-brands fa-github', 'bg-gray-100 text-espresso')}
-        <span class="flex-1 text-xs font-bold text-espresso">Code on GitHub</span>
-        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-gray-300"></i>
-      </a>`,
     ]),
   ].join('');
 }
@@ -196,12 +133,6 @@ function page() {
 const field = (id, label, value, attrs = '') => `
   <div><label for="${id}" class="${cls.label}">${label}</label>
   <input id="${id}" value="${esc(value)}" class="${cls.input}" ${attrs}></div>`;
-
-// Used for friends. Only e-Transfer and PayPal (no Venmo in Canada).
-const payFields = (pay = {}) => `
-  ${field('payEmail', 'Interac e-Transfer email', pay.email, 'type="email" autocomplete="email" placeholder="them@email.com"')}
-  ${field('payPaypal', 'PayPal.me name or link', pay.paypal ? paypalName(pay.paypal) : '', 'autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="paypal.me/theirname"')}`;
-const readPay = (el) => ({ email: $('#payEmail', el).value.trim(), paypal: paypalName($('#payPaypal', el).value) });
 
 // Same chips as js/screens/group.js.
 const dietChips = (diet = []) => `
@@ -344,77 +275,10 @@ function paypalSheet() {
   box.focus();
 }
 
-// One sheet for a saved friend, or a new one (f = null).
-function friendSheet(f) {
-  const s = store.state;
-  const inGroup = !!(f && s?.members[f.id]);
-  const { el, close } = sheet({
-    title: f ? f.name : 'Add a friend', subtitle: 'Saved on this phone only', icon: f ? 'fa-user-pen' : 'fa-user-plus',
-    body: `<form data-submit="save" class="flex flex-col gap-2.5">
-      ${field('friendName', 'Name', f?.name, 'required maxlength="24" placeholder="e.g. Sam"')}
-      ${payFields(f?.pay)}
-      ${dietChips(f?.diet)}
-      ${saveBtn()}
-      ${!s ? '' : inGroup
-        ? `<button type="button" disabled class="${cls.btnGhost} opacity-60 cursor-default"><i class="fa-solid fa-check"></i> In this group</button>`
-        : `<button type="button" data-click="addToGroup" class="${cls.btnDark}"><i class="fa-solid fa-user-plus"></i> Add to this group</button>`}
-      ${f ? `<button type="button" data-click="remove" class="${cls.btnGhost} text-terracotta-600"><i class="fa-solid fa-trash-can"></i> Remove friend</button>` : ''}
-    </form>`,
-  });
-  const form = $('form', el);
-  const nameBox = $('#friendName', el);
-  const named = () => { if (nameBox.value.trim()) return true; nameBox.focus(); return false; };
-  // Keeps any pay details the form doesn't show (e.g. an old Venmo name).
-  const keep = () => saveFriend({ id: f?.id, name: nameBox.value, pay: { ...f?.pay, ...readPay(el) }, diet: readDiet(el) });
-  delegate(el, {
-    save: () => {
-      if (!form.reportValidity() || !named()) return;
-      if (!validPaypal(readPay(el).paypal) && readPay(el).paypal) { $('#payPaypal', el).focus(); toast('Check the PayPal name', 'PayPal.me names only use letters and numbers.', 'warn'); return; }
-      close();
-      keep();
-      draw();
-    },
-    addToGroup: () => {
-      if (!form.reportValidity() || !named()) return;
-      close();
-      const { id, name, pay, diet } = keep();
-      store.dispatch({ type: 'member/join', member: { id, name, guest: true, pay, diet } });
-      toast(`${name} is in the group`, 'Their diet and pay details came along.');
-      draw();
-    },
-    remove: () => {
-      if (!confirm(`Remove ${f.name} from your friends? They stay in any group they're in.`)) return;
-      close();
-      removeFriend(f.id);
-      draw();
-    },
-  });
-  if (!f) nameBox.focus();
-}
-
-function groupNameSheet() {
-  const { el, close } = sheet({
-    title: 'Group name', subtitle: 'Everyone in your group sees it', icon: 'fa-pen',
-    body: `<form data-submit="save" class="flex flex-col gap-2.5">
-      ${field('groupNameEdit', 'Group name', store.state.name, 'required maxlength="30"')}
-      ${saveBtn()}
-    </form>`,
-  });
-  delegate(el, {
-    save: () => {
-      const name = $('#groupNameEdit', el).value.trim();
-      if (!name) return;
-      close();
-      store.dispatch({ type: 'session/rename', name });
-    },
-  });
-  $('#groupNameEdit', el).focus();
-}
-
 // ---- Open / close ----
 
-// onInvite opens the invite sheet (app.js's peopleSheet); onClose runs after the page is gone.
-export function openSettings({ onInvite, onClose } = {}) {
+// onClose runs after the page is gone.
+export function openSettings({ onClose } = {}) {
   if (body) return;
   const opener = document.activeElement;
   const wrap = document.createElement('div');
@@ -454,7 +318,7 @@ export function openSettings({ onInvite, onClose } = {}) {
     onClose?.();
   };
   const onPop = () => close(false);
-  // Something switched tabs underneath (e.g. New meal in the invite sheet): that means leaving Settings.
+  // Something switched tabs underneath: that means leaving Settings.
   const onHash = () => close(false);
   // Escape is for the page only when no sheet is open on top of it.
   const onKey = (e) => { if (e.key === 'Escape' && !wrap.nextElementSibling) close(true); };
@@ -470,27 +334,6 @@ export function openSettings({ onInvite, onClose } = {}) {
     editPrefs: prefsSheet,
     editEmail: emailSheet,
     editPaypal: paypalSheet,
-    addFriend: () => friendSheet(null),
-    editFriend: (el) => { const f = getFriend(el.dataset.id); if (f) friendSheet(f); },
-    saveMember: (el) => {
-      const m = store.state?.members[el.dataset.id];
-      if (!m) return;
-      saveFriend({ id: m.id, name: m.name, pay: m.pay, diet: m.diet });
-      toast('Saved as a friend', `${m.name} is on this phone now.`);
-      draw();
-    },
-    removeMember: (el) => {
-      const m = store.state?.members[el.dataset.id];
-      if (!m || !confirm(`Remove ${m.name} from the group?`)) return;
-      store.dispatch({ type: 'member/remove', id: m.id });
-    },
-    editGroupName: groupNameSheet,
-    invite: () => onInvite?.(),
-    newMeal: () => {
-      if (!confirm('Start a new meal with the same people? This clears the plan and the receipt.')) return;
-      store.dispatch({ type: 'session/newMeal' });
-      toast('New meal', 'Same group, fresh start.');
-    },
     theme: (el) => { setTheme(el.dataset.value); draw(); },
     clearHistory: () => {
       const meals = listMeals();

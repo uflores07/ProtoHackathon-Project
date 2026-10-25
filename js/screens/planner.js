@@ -143,7 +143,10 @@ function planView(s) {
 }
 
 function hero(r) {
-  const map = safeUrl(r?.mapsUrl);
+  // Google Maps links need no key; on phones they open the Maps app.
+  const where = encodeURIComponent([r?.name, r?.address].filter(Boolean).join(' '));
+  const map = safeUrl(r?.mapsUrl) || `https://www.google.com/maps/search/?api=1&query=${where}`;
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${where}`;
   return `
     <div class="bg-gradient-to-br from-terracotta-500 via-terracotta-600 to-amberWarm-600 rounded-3xl p-3.5 text-white shadow-lg flex flex-col gap-2">
       <div class="flex items-start justify-between gap-2">
@@ -156,8 +159,8 @@ function hero(r) {
         <span class="shrink-0 text-[9px] bg-black/20 px-2 py-0.5 rounded-lg text-orange-100 font-mono">Tax+Tip Included</span>
       </div>
       ${r?.name ? `<p class="text-[11px] font-bold flex items-center gap-1.5 min-w-0">
-          <i class="fa-solid fa-location-dot text-orange-100"></i><span class="truncate">${esc(r.name)}${r.cuisine ? ` <span class="font-normal text-orange-100">· ${esc(r.cuisine)}</span>` : ''}</span>
-          ${map ? `<a href="${esc(map)}" target="_blank" rel="noopener" class="shrink-0 text-[9px] underline text-orange-100">Map</a>` : ''}
+          <i class="fa-solid fa-location-dot text-orange-100"></i><span class="truncate"><a href="${esc(map)}" target="_blank" rel="noopener" class="underline decoration-white/40 underline-offset-2">${esc(r.name)}<span class="sr-only"> (opens Google Maps)</span></a>${r.cuisine ? ` <span class="font-normal text-orange-100">· ${esc(r.cuisine)}</span>` : ''}</span>
+          <a href="${esc(directions)}" target="_blank" rel="noopener" class="shrink-0 text-[9px] underline text-orange-100"><i class="fa-solid fa-diamond-turn-right"></i> Directions</a>
         </p>` : ''}
       <p class="text-[10px] text-orange-100/90 leading-relaxed">${r?.name
         ? 'Snap their menu and Split picks the most food for your budget, with tax and tip already counted.'

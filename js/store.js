@@ -4,6 +4,7 @@
 //   store.dispatch()  send an action to every phone in the group
 //   store.subscribe() get called after every change
 import { FIREBASE_CONFIG } from './config.js';
+import { forgetGroup, listGroups, rememberGroup } from './groups.js';
 import { initialState, normalize } from './reducer.js';
 import * as local from './sync/local.js';
 import { toast, uid } from './ui.js';
@@ -83,14 +84,34 @@ export const store = {
       t.close();
       return t.connect(c, (s) => {
         state = normalize(s);
+        rememberGroup(state);
         listeners.forEach((fn) => fn(state));
       });
     });
     if (!found) return false;
     code = c;
     localStorage.setItem(LAST, c);
+    rememberGroup(state, true);
     if (me.name && (!state.members[me.id] || state.members[me.id].guest)) await store.dispatch({ type: 'member/join', member: asMember(me) });
     return true;
+  },
+
+  // Leave the open group: take yourself out of it, forget it on this phone, then open your most
+  // recent other group, or start a new one if there isn't one.
+  async leave() {
+    if (!code) return null;
+    const left = code;
+    if (state?.members[me.id]) await store.dispatch({ type: 'member/remove', id: me.id });
+    forgetGroup(left);
+    localStorage.removeItem(LAST);
+    for (const g of listGroups()) {
+      if (g.code === left) continue;
+      const wasSynced = store.synced;
+      if (await store.open(g.code)) return g.code;
+      // Forget it only when Firebase answered and it isn't there; a slow or failed call just skips it.
+      if (wasSynced && store.synced) forgetGroup(g.code);
+    }
+    return store.create();
   },
 
   async create() {

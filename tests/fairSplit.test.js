@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RECEIPT } from '../js/fixtures/receipt.js';
 import { allocate, budgetCheck, computeShares, explainShare, explainTip, nameScore, prefillClaims, tipAmount } from '../js/lib/fairSplit.js';
+import { initialState, reduce } from '../js/reducer.js';
 
 const receipt = (items, extra = {}) => ({
   items: items.map(([name, price], i) => ({ id: `r${i + 1}`, name, qty: 1, price })),
@@ -51,6 +52,15 @@ test('the demo receipt splits to the cent', () => {
   assert.equal(res.totals.total, 7400 + 370 + 1332);
   assert.equal(res.allClaimed, true);
   assertConsistent(res, r);
+});
+
+test('a receipt adds no tip of its own: the split comes to what the receipt says was paid', () => {
+  const items = RECEIPT.items.map((it, i) => ({ id: `r${i + 1}`, name: it.name, qty: it.qty, price: it.lineTotal }));
+  for (const printed of [RECEIPT, { ...RECEIPT, tip: 12, total: 89.7 }]) {
+    const s = reduce(initialState('ABCDE', 1), { type: 'receipt/set', receipt: { ...printed, items }, at: 2 });
+    assert.equal(s.receipt.tipPct, 0);
+    assert.equal(computeShares(s.receipt).totals.total, Math.round(printed.total * 100));
+  }
 });
 
 test('the demo receipt adds up and matches the demo plan (4 people, $80)', () => {

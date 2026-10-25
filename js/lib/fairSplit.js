@@ -140,7 +140,7 @@ export function explainShare(person, totals, name = null) {
     .filter(([, v]) => v).map(([k]) => k);
   if (!fees.length) return '';
   const pct = `${Math.round((100 * person.base) / totals.base) || '<1'}%`;
-  const list = fees.length > 1 ? `${fees.slice(0, -1).join(', ')} and ${fees.at(-1)}` : fees[0];
+  const list = fees.length > 1 ? `${fees.slice(0, -1).join(', ')} and ${fees[fees.length - 1]}` : fees[0];
   return `${name ?? 'You'} had ${pct} of the food, so ${pct} of the ${list} is on ${name == null ? 'your' : 'their'} share.`;
 }
 

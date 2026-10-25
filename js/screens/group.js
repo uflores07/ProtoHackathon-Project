@@ -1,11 +1,16 @@
 // Group Finder: everyone's preferences, the AI restaurant search, ranking, voting, and
 // locking the winner into the planner. Ranking itself lives in js/lib/rankPlaces.js.
 import { findPlaces } from '../ai/places.js';
+import { getFriend, listFriends, saveFriend } from '../friends.js';
 import { suggestPlaces } from '../geo.js';
+import { listGroups } from '../groups.js';
 import { listMeals } from '../history.js';
 import { dietLabel, rankPlaces, similarHistory, voteCounts, winner } from '../lib/rankPlaces.js';
+import { foodPhotos } from '../photos.js';
 import { DIETS } from '../reducer.js';
 import { go } from '../router.js';
+import { openFriendSheet } from './friendSheet.js';
+import { openGroupSettings } from './groupSettings.js';
 import { setSettings as setPlanSettings } from './planner.js';
 import { store } from '../store.js';
 import { $, cls, color, delegate, demoBadge, esc, initials, money, patch, sheet, toast, uid } from '../ui.js';
@@ -29,6 +34,9 @@ let areaHitsFor = ''; // the text those suggestions are for, to bold the matchin
 let areaActive = -1; // option highlighted with the arrow keys
 let lookTimer = 0;
 let lookCtrl = null;
+let friendFilter = ''; // group code the Friends list is filtered to, '' = all
+const photoSets = new Map(); // place key -> [{ url, alt }], null while loading
+let photoWanted = []; // places whose photo row the last render drew
 
 const rerender = () => store.state && render(rootEl, store.state);
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -38,6 +46,15 @@ const mapLink = (p) => (/^https?:\/\//i.test(p.mapsUrl ?? '')
   : '');
 const placeMeta = (p) => [esc(p.cuisine), p.distanceKm != null ? `${esc(p.distanceKm)} km away` : '', p.rating > 0 ? `★ ${esc(p.rating)}` : '', mapLink(p)]
   .filter(Boolean).join(' • ');
+// Google Maps links need no key; on phones they open the Maps app.
+const where = (p) => [p.name, p.address].filter(Boolean).join(' ');
+const mapsHref = (p) => (/^https?:\/\//i.test(p.mapsUrl ?? '') ? p.mapsUrl : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where(p))}`);
+const dirHref = (p) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(where(p))}`;
+const nameLink = (p) => `<a href="${esc(mapsHref(p))}" target="_blank" rel="noopener" class="hover:underline">${esc(p.name)}<span class="sr-only"> (opens Google Maps)</span></a>`;
+const dirButton = (p) => `<a href="${esc(dirHref(p))}" target="_blank" rel="noopener"
+  class="px-2.5 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-espresso font-bold text-[10px] active:scale-95 transition-all shrink-0"><i class="fa-solid fa-diamond-turn-right"></i> Directions</a>`;
+// Firebase can hand arrays back as objects, so read dishes either way.
+const dishesOf = (p) => (Array.isArray(p.dishes) ? p.dishes : Object.values(p.dishes ?? {})).filter((d) => typeof d === 'string' && d.trim()).slice(0, 3);
 const byJoin = (a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0);
 // Only you or a guest; anyone else with the app votes on their own phone.
 const voter = (s) => (s.members[votingAs]?.guest ? votingAs : store.me.id);
@@ -126,7 +143,11 @@ const banner = (s) => `
   <div class="bg-gradient-to-br from-espresso via-terracotta-900 to-amberWarm-600 rounded-3xl p-3.5 text-white shadow-md flex flex-col gap-1.5">
     <div class="flex items-center justify-between gap-2">
       <span class="text-[9px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1"><i class="fa-solid fa-people-group"></i> Group Decision Engine</span>
-      <span class="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold truncate max-w-[50%]">${esc(s.name)}</span>
+      <span class="flex items-center gap-1.5 min-w-0 max-w-[55%]">
+        <span class="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold truncate min-w-0">${esc(s.name)}</span>
+        <button type="button" data-click="groupSettings" aria-label="Group settings"
+          class="w-9 h-9 shrink-0 rounded-xl bg-white/20 hover:bg-white/30 border border-white/30 flex items-center justify-center active:scale-95 transition-all"><i class="fa-solid fa-gear text-sm" aria-hidden="true"></i></button>
+      </span>
     </div>
     <h2 class="font-display font-extrabold text-base leading-snug">Find a place that works for everyone</h2>
     <p class="text-[10px] text-orange-100/90 leading-relaxed">We check everyone's budget, cuisine, distance and diet, then rank the places that suit the most people. Anywhere over <b>anyone's</b> budget is left out.</p>
@@ -141,33 +162,34 @@ const banner = (s) => `
 
 // --- Members ---
 
-function chip(m) {
+// Your chip edits your preferences; anyone else's opens their sheet (add to friends, and edit for guests).
+function chip(m, friendIds) {
   const mine = m.id === store.me.id;
-  const editable = mine || m.guest;
-  const tag = editable ? 'button' : 'div';
+  const icon = mine || m.guest ? 'fa-pen' : friendIds.has(m.id) ? 'fa-user-check' : 'fa-user-plus';
   const badges = m.diet.map((d) => `<span class="text-[8px] bg-sage-100 text-sage-800 px-1.5 py-0.5 rounded-md font-bold capitalize">${esc(dietLabel(d))}</span>`).join('')
     + (m.guest ? '<span class="text-[8px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded-md font-bold">Guest</span>' : '');
-  return `<${tag} ${editable ? `type="button" data-click="edit" data-id="${esc(m.id)}"` : ''}
-    class="text-left p-2 rounded-2xl border flex flex-col gap-0.5 min-w-0 ${mine ? 'bg-orange-50/70 border-orange-100' : 'bg-gray-50 border-gray-100'} ${editable ? 'active:scale-98 transition-all' : ''}">
-    ${editable ? '<span class="sr-only">Edit</span>' : ''}
+  return `<button type="button" data-click="${mine ? 'edit' : 'member'}" data-id="${esc(m.id)}"
+    class="text-left p-2 rounded-2xl border flex flex-col gap-0.5 min-w-0 active:scale-98 transition-all ${mine ? 'bg-orange-50/70 border-orange-100' : 'bg-gray-50 border-gray-100'}">
+    ${mine ? '<span class="sr-only">Edit</span>' : ''}
     <span class="flex items-center justify-between gap-1 w-full">
       <span class="font-bold text-[11px] text-espresso truncate">${esc(m.name)}${mine ? ' (You)' : ''}</span>
       <span class="text-[9px] font-extrabold ${color(m).text} shrink-0">$${esc(m.budget)} cap</span>
     </span>
     <span class="text-[8px] text-gray-500 flex items-center gap-1 w-full">${esc(m.cuisine || 'Any')} • ${esc(m.distanceKm)} km
-      ${editable ? '<i class="fa-solid fa-pen text-[7px] text-gray-400 ml-auto" aria-hidden="true"></i>' : ''}</span>
+      <i class="fa-solid ${icon} text-[7px] text-gray-400 ml-auto" aria-hidden="true"></i></span>
     ${badges ? `<span class="flex flex-wrap gap-1">${badges}</span>` : ''}
-  </${tag}>`;
+  </button>`;
 }
 
 function membersCard(s) {
   const list = Object.values(s.members).sort(byJoin);
+  const friendIds = new Set(listFriends().map((f) => f.id));
   return `<div class="${cls.card}">
     <div class="border-b border-gray-100 pb-2">
       <h3 class="${cls.title}">Everyone's preferences (${list.length})</h3>
-      <p class="${cls.sub}">Tap your card to change yours. Friends update theirs on their own phone.</p>
+      <p class="${cls.sub}">Tap your card to change yours. Tap someone else to add them to your friends.</p>
     </div>
-    ${list.length ? `<div class="grid grid-cols-2 gap-2">${list.map(chip).join('')}</div>`
+    ${list.length ? `<div class="grid grid-cols-2 gap-2">${list.map((m) => chip(m, friendIds)).join('')}</div>`
       : '<p class="text-[10px] text-gray-500">Nobody here yet. Add your name in Settings, then invite your group.</p>'}
     <button data-click="addGuest" class="${cls.btnGhost}"><i class="fa-solid fa-user-plus"></i> Add someone without the app</button>
   </div>`;
@@ -231,6 +253,40 @@ function editSheet(m) {
   });
 }
 
+// Someone else in the group: who they are, their preferences, and "Add to friends". Guests keep edit and remove.
+function memberSheet(m) {
+  const saved = !!getFriend(m.id);
+  const diet = m.diet.map(dietLabel).join(', ');
+  const { el, close } = sheet({
+    title: m.name,
+    subtitle: m.guest ? 'Guest' : 'Uses Split',
+    icon: m.guest ? 'fa-user' : 'fa-user-check',
+    body: `
+      <div><p class="${cls.label}">Preferences</p>
+        <p class="text-xs font-semibold text-espresso">${esc(`$${m.budget} cap • ${m.cuisine || 'Any'} • ${m.distanceKm} km • ${diet || 'No dietary needs'}`)}</p></div>
+      ${saved
+        ? `<button type="button" disabled class="${cls.btnGhost} opacity-60 cursor-default"><i class="fa-solid fa-user-check"></i> In your friends</button>`
+        : `<button type="button" data-click="addFriend" class="${cls.btn}"><i class="fa-solid fa-user-plus"></i> Add to friends</button>`}
+      ${m.guest ? `
+        <button type="button" data-click="edit" class="${cls.btnGhost}"><i class="fa-solid fa-pen"></i> Edit their preferences</button>
+        <button type="button" data-click="remove" class="${cls.btnGhost} text-terracotta-600"><i class="fa-solid fa-user-minus"></i> Remove ${esc(m.name)}</button>` : ''}`,
+  });
+  delegate(el, {
+    addFriend: () => {
+      close();
+      saveFriend({ id: m.id, name: m.name, pay: m.pay, diet: m.diet });
+      toast('Added to your friends', `${m.name} is saved on this phone.`);
+      rerender();
+    },
+    edit: () => { close(); editSheet(m); },
+    remove: () => {
+      if (!confirm(`Remove ${m.name} from the group?`)) return;
+      close();
+      store.dispatch({ type: 'member/remove', id: m.id });
+    },
+  });
+}
+
 // --- Search + results ---
 
 const findButton = () => `
@@ -252,6 +308,45 @@ function voteButton(p, s) {
     <i class="fa-${on ? 'solid' : 'regular'} fa-thumbs-up"></i> ${on ? 'Voted' : 'Vote'}</button>`;
 }
 
+// Food photos under each top match. The row is drawn from photoSets on every render, and
+// loadPhotos() fills rows still loading once the photos arrive, so re-renders keep them.
+const photoKey = (p) => [p.name, p.cuisine, ...dishesOf(p)].join('|');
+const TILE = 'w-20 h-20 rounded-xl shrink-0 bg-gray-100';
+
+function photoTiles(shots) {
+  if (!shots) return `<div class="flex gap-1.5" aria-hidden="true">${`<span class="${TILE} animate-pulse"></span>`.repeat(3)}</div>`;
+  if (!shots.length) return '';
+  return `<div class="flex gap-1.5 overflow-hidden">${shots.map((x) => `<img src="${esc(x.url)}" alt="${esc(x.alt)}" loading="lazy" decoding="async" class="${TILE} object-cover">`).join('')}</div>
+    <p class="text-[8px] text-gray-400 mt-0.5">Photos: Wikimedia Commons</p>`;
+}
+
+function photoRow(p) {
+  photoWanted.push(p);
+  const key = photoKey(p);
+  return `<div data-photos="${esc(key)}">${photoTiles(photoSets.get(key))}</div>`;
+}
+
+// One photo per signature dish, or a few of the cuisine when there are no dishes (or none had a photo).
+async function placePhotos(p) {
+  const got = (await Promise.all(dishesOf(p).map(async (d) => ({ alt: d, url: (await foodPhotos(`${d} dish`, 1))[0] }))))
+    .filter((x) => x.url);
+  if (got.length) return got;
+  const food = `${p.cuisine || 'restaurant'} food`;
+  return (await foodPhotos(food, 3)).map((url) => ({ alt: food, url }));
+}
+
+function loadPhotos() {
+  for (const p of photoWanted) {
+    const key = photoKey(p);
+    if (photoSets.has(key)) continue;
+    photoSets.set(key, null);
+    placePhotos(p).catch(() => []).then((shots) => {
+      photoSets.set(key, shots);
+      for (const el of rootEl?.querySelectorAll('[data-photos]') ?? []) if (el.dataset.photos === key) el.innerHTML = photoTiles(shots);
+    });
+  }
+}
+
 function placeCard(row, i, s) {
   const p = row.place;
   const voters = votersOf(p, s);
@@ -264,7 +359,7 @@ function placeCard(row, i, s) {
         <div class="flex items-center gap-2 min-w-0">
           <span class="w-5 h-5 rounded-full ${RANK[i]} text-white font-extrabold text-[10px] flex items-center justify-center shrink-0">${i + 1}</span>
           <div class="min-w-0">
-            <h4 class="font-display font-bold text-xs text-espresso truncate">${esc(p.name)}</h4>
+            <h4 class="font-display font-bold text-xs text-espresso truncate">${nameLink(p)}</h4>
             <p class="text-[9px] text-gray-500">${placeMeta(p)}</p>
           </div>
         </div>
@@ -279,12 +374,14 @@ function placeCard(row, i, s) {
       </div>
       ${p.why ? `<p class="text-[10px] text-gray-600 leading-snug">${esc(p.why)}</p>` : ''}
       ${reasons.length ? `<p class="text-[9px] text-amberWarm-800 leading-snug"><i class="fa-solid fa-circle-exclamation"></i> ${reasons.map(esc).join(' · ')}</p>` : ''}
-      <div class="flex items-center justify-between gap-2 pt-1">
+      ${photoRow(p)}
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
         <div class="flex items-center gap-1.5 min-w-0">
           ${voters.length ? `<div class="flex -space-x-1.5">${voters.map(avatar).join('')}</div>` : ''}
           <span class="font-extrabold ${voters.length ? 'text-terracotta-600' : 'text-gray-400'} text-[10px]">${plural(voters.length, 'vote')}</span>
         </div>
-        <div class="flex gap-1.5">
+        <div class="flex gap-1.5 ml-auto">
+          ${dirButton(p)}
           ${copyButton(p, 'finder')}
           ${voteButton(p, s)}
         </div>
@@ -303,7 +400,7 @@ function moreRow(r, s) {
   return `
   <div class="${cls.row} gap-2">
     <div class="min-w-0">
-      <p class="font-bold text-espresso truncate">${esc(r.place.name)}</p>
+      <p class="font-bold text-espresso truncate">${nameLink(r.place)}</p>
       <p class="text-[9px] text-gray-500">${money(r.place.estCostPerPerson)}/person • ${placeMeta(r.place)}</p>
       <p class="text-[9px] text-gray-500"><b class="text-espresso">${r.matchPct}% match</b> • ${happy(r, s)}${votes ? ` • <b class="text-terracotta-600">${plural(votes, 'vote')}</b>` : ''}</p>
     </div>
@@ -339,8 +436,9 @@ const lockedNote = (p) => `
   <div class="p-2.5 rounded-2xl bg-sage-50 border border-sage-100 flex items-center justify-between gap-2">
     <div class="min-w-0">
       <p class="text-[9px] font-bold uppercase tracking-wider text-sage-600"><i class="fa-solid fa-lock"></i> Locked in</p>
-      <p class="font-display font-bold text-xs text-espresso truncate">${esc(p.name)}</p>
+      <p class="font-display font-bold text-xs text-espresso truncate">${nameLink(p)}</p>
       ${p.address ? `<p class="text-[9px] text-gray-500 truncate">${esc(p.address)}</p>` : ''}
+      <a href="${esc(dirHref(p))}" target="_blank" rel="noopener" class="inline-block text-[10px] font-bold text-terracotta-600 underline py-1"><i class="fa-solid fa-diamond-turn-right"></i> Directions</a>
     </div>
     <button data-click="toPlanner" class="px-3 py-2 rounded-xl bg-espresso text-white font-bold text-[10px] shrink-0">Open planner <i class="fa-solid fa-arrow-right"></i></button>
   </div>`;
@@ -379,14 +477,12 @@ function resultsCard(s) {
 
 const similarRow = (p) => `
   <div class="p-2 rounded-2xl bg-gray-50 border border-gray-100 flex flex-col gap-1">
-    <div class="flex items-start justify-between gap-2">
-      <div class="min-w-0">
-        <p class="font-bold text-xs text-espresso truncate">${esc(p.name)}</p>
-        <p class="text-[9px] text-gray-500">${money(p.estCostPerPerson)}/person • ${placeMeta(p)}</p>
-      </div>
-      ${copyButton(p, 'similar')}
+    <div class="min-w-0">
+      <p class="font-bold text-xs text-espresso truncate">${nameLink(p)}</p>
+      <p class="text-[9px] text-gray-500">${money(p.estCostPerPerson)}/person • ${placeMeta(p)}</p>
     </div>
     ${p.why ? `<p class="text-[10px] text-gray-600 leading-snug">${esc(p.why)}</p>` : ''}
+    <div class="flex justify-end gap-1.5">${dirButton(p)}${copyButton(p, 'similar')}</div>
   </div>`;
 
 function similarCard() {
@@ -407,6 +503,47 @@ function similarCard() {
       </button>
       ${similar ? (similar.places.length ? similar.places.map(similarRow).join('') : '<p class="text-[10px] text-gray-500">Nothing new came back. Try a wider area.</p>') : ''}`
       : '<p class="text-[10px] text-gray-500">Finish a meal on the Split tab and we\'ll suggest new places like it here.</p>'}
+  </div>`;
+}
+
+// --- Friends (saved on this phone), filtered by a group you've been in ---
+
+const fbadge = (text, tint) => `<span class="text-[8px] ${tint} px-1.5 py-0.5 rounded-md font-bold">${text}</span>`;
+
+function friendsCard(s) {
+  const groups = listGroups();
+  const group = groups.find((g) => g.code === friendFilter);
+  const all = listFriends();
+  const shown = group ? all.filter((f) => f.id in group.members) : all;
+  const filterChip = (code, label) => `<button type="button" data-click="friendFilter" data-code="${esc(code)}" aria-pressed="${(group?.code ?? '') === code}"
+    class="px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap shrink-0 active:scale-95 transition-all ${(group?.code ?? '') === code ? 'bg-espresso text-white' : 'bg-gray-100 hover:bg-gray-200 text-espresso'}">${label}</button>`;
+  const rows = shown.map((f) => {
+    const badges = [
+      s.members[f.id] ? fbadge('In this group', 'bg-terracotta-100 text-terracotta-600') : '',
+      f.pay.email ? fbadge('e-Transfer', 'bg-sky-100 text-sky-700') : '',
+      f.pay.paypal ? fbadge('PayPal', 'bg-sky-100 text-sky-700') : '',
+      ...f.diet.map((d) => fbadge(esc(dietLabel(d)), 'bg-sage-100 text-sage-800 capitalize')),
+    ].join('');
+    return `<button type="button" data-click="editFriend" data-id="${esc(f.id)}" class="w-full flex items-center gap-2.5 py-2 text-left active:bg-orange-50 transition-colors">
+      <span class="w-8 h-8 shrink-0 rounded-xl ${color(s.members[f.id]).solid} text-white font-display font-extrabold text-[11px] flex items-center justify-center">${initials(f.name)}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block text-xs font-bold text-espresso truncate">${esc(f.name)}</span>
+        ${badges ? `<span class="flex flex-wrap gap-1 mt-0.5">${badges}</span>` : ''}
+      </span>
+      <i class="fa-solid fa-chevron-right text-[10px] text-gray-300 shrink-0" aria-hidden="true"></i>
+    </button>`;
+  });
+  const empty = all.length ? 'None of your saved friends were in that group.' : 'Save the people you eat with often, then add them to any group in one tap.';
+  return `<div class="${cls.card}">
+    <div>
+      <h3 class="${cls.title}"><i class="fa-solid fa-user-group text-terracotta-500"></i> Friends</h3>
+      <p class="${cls.sub}">Saved on this phone. Tap a friend to edit them or add them to this group.</p>
+    </div>
+    ${groups.length && all.length ? `<div role="group" aria-label="Show friends from" class="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1">
+      ${filterChip('', 'All')}${groups.map((g) => filterChip(g.code, `${esc(g.name || 'Group')} <span class="opacity-60">${esc(g.code)}</span>`)).join('')}
+    </div>` : ''}
+    ${rows.length ? `<div class="flex flex-col divide-y divide-gray-100">${rows.join('')}</div>` : `<p class="text-[10px] text-gray-500 leading-snug">${empty}</p>`}
+    <button type="button" data-click="addFriend" class="${cls.btnGhost}"><i class="fa-solid fa-user-plus"></i> Add a friend</button>
   </div>`;
 }
 
@@ -440,11 +577,25 @@ export function mount(root) {
       if (areaDraft != null) saveArea(areaDraft);
     }, 150);
   });
+  // A food photo that fails to load just disappears (error events don't bubble, so listen in capture).
+  // A photo that fails is dropped from the cache too, so re-renders don't keep bringing it back.
+  root.addEventListener('error', (e) => {
+    if (e.target.tagName !== 'IMG') return;
+    const key = e.target.closest('[data-photos]')?.dataset.photos;
+    const src = e.target.getAttribute('src');
+    if (key && photoSets.get(key)) photoSets.set(key, photoSets.get(key).filter((x) => x.url !== src));
+    e.target.remove();
+  }, true);
   delegate(root, {
     setArea: (el) => saveArea(el.value),
     typeArea: (el) => { areaDraft = el.value; lookUpArea(el.value.trim()); },
     pickArea: (el) => chooseArea(Number(el.dataset.pick)),
+    groupSettings: () => openGroupSettings(),
     edit: (el) => { const m = store.state.members[el.dataset.id]; if (m) editSheet(m); },
+    member: (el) => { const m = store.state.members[el.dataset.id]; if (m) memberSheet(m); },
+    friendFilter: (el) => { friendFilter = el.dataset.code; rerender(); },
+    addFriend: () => openFriendSheet(null, rerender),
+    editFriend: (el) => { const f = getFriend(el.dataset.id); if (f) openFriendSheet(f, rerender); },
     addGuest: () => editSheet(null),
     find: async () => {
       const area = areaValue();
@@ -508,5 +659,7 @@ export function mount(root) {
 }
 
 export function render(root, state) {
-  patch(root, banner(state) + membersCard(state) + findButton() + resultsCard(state) + similarCard());
+  photoWanted = [];
+  patch(root, banner(state) + membersCard(state) + findButton() + resultsCard(state) + similarCard() + friendsCard(state));
+  loadPhotos();
 }

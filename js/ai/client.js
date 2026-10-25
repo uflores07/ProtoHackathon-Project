@@ -13,7 +13,12 @@ const KEY = 'split.geminiKey';
 
 // Asked once at startup: the local dev server first, then the Worker. A 404 (GitHub Pages,
 // no key in .env, or no secret on the Worker) means that one has no key.
-const ready = (base) => fetch(`${base}api/gemini`, { cache: 'no-store' }).then((r) => r.ok, () => false);
+// Capped at 3 s: the whole app waits for this check, and on some phone networks the request can stall
+// with no answer (seen on iPhone Safari), which left the app blank. No answer counts as no key.
+const ready = (base) => Promise.race([
+  fetch(`${base}api/gemini`, { cache: 'no-store' }).then((r) => r.ok, () => false),
+  new Promise((ok) => setTimeout(() => ok(false), 3000)),
+]);
 const proxyBase = (await ready('')) ? ''
   : AI_PROXY && (await ready(AI_PROXY.replace(/\/?$/, '/'))) ? AI_PROXY.replace(/\/?$/, '/') : null;
 const serverKey = proxyBase !== null;
@@ -25,7 +30,7 @@ export const usingServerKey = () => serverKey && !getApiKey();
 export const demoMode = () => !getApiKey() && !serverKey;
 
 // A demo answer, after a short pause so the scanner animation reads as real.
-export const demo = (data, ms = 1500) => new Promise((ok) => setTimeout(() => ok(structuredClone(data)), ms));
+export const demo = (data, ms = 1500) => new Promise((ok) => setTimeout(() => ok(JSON.parse(JSON.stringify(data))), ms));
 
 // A photo as a Gemini request part.
 export const imageBlock = ({ base64, mediaType }) => ({ inlineData: { mimeType: mediaType, data: base64 } });

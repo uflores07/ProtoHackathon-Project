@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { addSampleMeals, sampleMeals } from '../js/fixtures/history.js';
 import { listMeals, saveMeal } from '../js/history.js';
-import { balances, monthly, netBalance, pending, reminderText, settlePatch, stats, whoPaysNext } from '../js/lib/ledger.js';
+import { balances, pending, reminderText, settled, settlePatch } from '../js/lib/ledger.js';
 
 const meal = (id, payerId, total, shares, extra = {}) => ({
   id, at: new Date(2026, 9, 10).getTime(), restaurant: id, total, planned: null, payerId,
@@ -10,18 +10,18 @@ const meal = (id, payerId, total, shares, extra = {}) => ({
   ...extra,
 });
 
-test('empty history: nothing owed, nobody up next, zero stats', () => {
+test('empty history: nothing owed, nothing settled', () => {
   assert.deepEqual(balances([], 'me'), []);
-  assert.equal(netBalance([], 'me'), 0);
-  assert.equal(whoPaysNext([]), null);
-  assert.deepEqual(stats([], 'me'), { meals: 0, spent: 0, avgPerMeal: 0, underBudget: 0, saved: 0 });
-  assert.equal(monthly([], 'me', 3, new Date(2026, 9, 24).getTime()).every((m) => m.mine === 0 && m.total === 0), true);
+  assert.deepEqual(settled([], 'me'), []);
 });
 
 test('when I paid, everyone unpaid owes me their share; paid flags drop out', () => {
   const m = meal('m1', 'me', 60, [['me', 20], ['sam', 18.7], ['jo', 21.3, true]]);
-  assert.deepEqual(balances([m], 'me'), [{ personId: 'sam', name: 'SAM', meals: ['m1'], pay: {}, amount: 18.7 }]);
-  assert.equal(netBalance([m], 'me'), 18.7);
+  assert.deepEqual(balances([m], 'me'), [{
+    personId: 'sam', name: 'SAM', meals: ['m1'], pay: {}, amount: 18.7,
+    items: [{ mealId: 'm1', restaurant: 'm1', at: m.at, amount: 18.7 }],
+  }]);
+  assert.deepEqual(settled([m], 'me'), [], 'paid at the table, not settled up in the Ledger');
   assert.equal(pending(m), 1);
 });
 
@@ -44,7 +44,6 @@ test('the same people across meals net out in cents', () => {
   const b = balances(meals, 'me');
   // sam: +10.10 - 10.20 + 10.00 - 9.90 = 0, so sam drops out; jo owes 9.90
   assert.deepEqual(b.map((x) => [x.personId, x.amount]), [['jo', 9.9]]);
-  assert.equal(netBalance(meals, 'me'), 9.9);
 });
 
 test('balances are sorted owed-to-me first and keep every involved meal', () => {
@@ -55,7 +54,7 @@ test('balances are sorted owed-to-me first and keep every involved meal', () => 
   ];
   const b = balances(meals, 'me');
   assert.deepEqual(b.map((x) => [x.personId, x.amount, x.meals]), [['sam', 25, ['m1', 'm3']], ['jo', -15, ['m2']]]);
-  assert.equal(netBalance(meals, 'me'), 10);
+  assert.deepEqual(b[1].items.map((i) => i.amount), [-15]);
 });
 
 test('pay handles come from the newest meal that has them', () => {
@@ -72,73 +71,19 @@ test('meals with no payer or zero shares owe nothing', () => {
   assert.equal(pending(meals[1]), 0);
 });
 
-test('who pays next is whoever paid least compared with what they ate', () => {
-  const meals = [
-    meal('m1', 'me', 60, [['me', 20], ['sam', 20], ['jo', 20]]),
-    meal('m2', 'sam', 30, [['me', 10], ['sam', 10], ['jo', 10]]),
-  ];
-  // me +30, sam 0, jo -30
-  assert.deepEqual(whoPaysNext(meals), { personId: 'jo', name: 'JO', gap: -30 });
-});
-
-test('who pays next is null when everyone is even', () => {
-  assert.equal(whoPaysNext([meal('m1', 'me', 20, [['me', 20]])]), null);
-});
-
-test('monthly buckets my share and the bill, oldest first, with empty months', () => {
-  const now = new Date(2026, 9, 24).getTime();
-  const meals = [
-    { ...meal('oct', 'me', 50, [['me', 20], ['sam', 30]]), at: new Date(2026, 9, 2).getTime() },
-    { ...meal('oct2', 'sam', 10.1, [['me', 5.05], ['sam', 5.05]]), at: new Date(2026, 9, 20).getTime() },
-    { ...meal('aug', 'sam', 40, [['me', 15], ['sam', 25]]), at: new Date(2026, 7, 31).getTime() },
-    { ...meal('old', 'sam', 99, [['me', 99]]), at: new Date(2026, 4, 1).getTime() },
-  ];
-  assert.deepEqual(monthly(meals, 'me', 3, now), [
-    { key: '2026-08', label: 'Aug', mine: 15, total: 40 },
-    { key: '2026-09', label: 'Sep', mine: 0, total: 0 },
-    { key: '2026-10', label: 'Oct', mine: 25.05, total: 60.1 },
-  ]);
-});
-
-test('monthly crosses the new year', () => {
-  const keys = monthly([], 'me', 3, new Date(2027, 0, 5).getTime()).map((m) => m.key);
-  assert.deepEqual(keys, ['2026-11', '2026-12', '2027-01']);
-});
-
-test('stats count my spend and the net against the plan over every planned meal', () => {
-  const meals = [
-    meal('a', 'me', 82.3, [['me', 21.5]], { planned: 90 }),
-    meal('b', 'jo', 63.75, [['me', 21]], { planned: 60 }),
-    meal('c', 'jo', 40, [['me', 10.1]], { planned: 40 }),
-    meal('d', 'jo', 50, [['sam', 50]]),
-  ];
-  // +7.70 - 3.75 + 0 = 3.95; meal d has no plan so it doesn't count
-  assert.deepEqual(stats(meals, 'me'), { meals: 4, spent: 52.6, avgPerMeal: 13.15, underBudget: 2, saved: 3.95 });
-});
-
-test('stats go negative when the meals came in over plan overall', () => {
-  const meals = [
-    meal('a', 'me', 95.1, [['me', 30]], { planned: 90 }),
-    meal('b', 'me', 58, [['me', 20]], { planned: 60 }),
-  ];
-  assert.equal(stats(meals, 'me').saved, -3.1);
-  assert.equal(stats(meals, 'me').underBudget, 1);
-});
-
 test('a negative share (a claimed coupon) means the payer owes that person', () => {
   const m = meal('m1', 'me', 60, [['me', 29.41], ['x', 36.9], ['y', -6.31]]);
   assert.deepEqual(balances([m], 'me').map((b) => [b.personId, b.amount]), [['x', 36.9], ['y', -6.31]]);
-  assert.equal(netBalance([m], 'me'), 30.59);
   assert.equal(pending(m), 2);
   // From y's phone the payer owes y.
   assert.deepEqual(balances([m], 'y').map((b) => [b.personId, b.amount]), [['me', 6.31]]);
-  assert.equal(netBalance([m], 'y'), 6.31);
   // Settling with y clears it on both phones.
-  const settled = { ...m, ...settlePatch(m, 'me', 'y') };
-  assert.equal(settled.members.y.paid, true);
-  assert.deepEqual(balances([settled], 'me').map((b) => b.personId), ['x']);
+  const paidY = { ...m, ...settlePatch(m, 'me', 'y', true, 5) };
+  assert.equal(paidY.members.y.paid, true);
+  assert.deepEqual(balances([paidY], 'me').map((b) => b.personId), ['x']);
+  assert.deepEqual(settled([paidY], 'me').map((b) => [b.personId, b.amount, b.at]), [['y', -6.31, 5]]);
   assert.deepEqual(balances([{ ...m, ...settlePatch(m, 'y', 'me') }], 'y'), []);
-  assert.equal(pending(settled), 1);
+  assert.equal(pending(paidY), 1);
 });
 
 test('settling marks the right person paid on each side of the debt', () => {
@@ -149,6 +94,59 @@ test('settling marks the right person paid on each side of the debt', () => {
   assert.equal(settlePatch(samPaid, 'me', 'sam').members.me.paid, true);
   assert.equal(settlePatch(samPaid, 'me', 'jo'), null);
   assert.deepEqual(balances([iPaid, samPaid].map((m) => ({ ...m, ...settlePatch(m, 'me', 'sam') })), 'me'), []);
+});
+
+test('settling with a person moves them to settled, and undo puts every meal back', () => {
+  const meals = [
+    meal('m1', 'me', 40, [['me', 20], ['sam', 20]]),
+    meal('m2', 'sam', 30, [['me', 12], ['sam', 18]]),
+    meal('m3', 'me', 30, [['me', 15], ['sam', 10], ['jo', 5]]),
+  ];
+  const sam = balances(meals, 'me').find((b) => b.personId === 'sam');
+  assert.equal(sam.amount, 18); // 20 - 12 + 10
+  assert.deepEqual(sam.items.map((i) => [i.mealId, i.amount]), [['m1', 20], ['m2', -12], ['m3', 10]]);
+  const apply = (all, paid) => all.map((m) => (sam.meals.includes(m.id) ? { ...m, ...settlePatch(m, 'me', 'sam', paid, 100) } : m));
+  const done = apply(meals, true);
+  assert.deepEqual(balances(done, 'me').map((b) => [b.personId, b.amount]), [['jo', 5]]);
+  assert.deepEqual(settled(done, 'me').map((b) => [b.personId, b.amount, b.meals, b.at]), [['sam', 18, ['m1', 'm2', 'm3'], 100]]);
+  assert.equal(done[1].members.me.paid, true); // on sam's bill it's my line that gets marked
+  const undone = apply(done, false);
+  assert.deepEqual(balances(undone, 'me'), balances(meals, 'me'));
+  assert.deepEqual(settled(undone, 'me'), []);
+  assert.equal(undone[0].members.sam.paid, false);
+});
+
+test('undo only touches the debt between me and that person', () => {
+  const m = meal('m1', 'me', 30, [['me', 10], ['sam', 10], ['jo', 10]]);
+  const both = [['sam', 1], ['jo', 2]].reduce((x, [id, at]) => ({ ...x, ...settlePatch(x, 'me', id, true, at) }), m);
+  assert.deepEqual(settled([both], 'me').map((b) => b.personId), ['jo', 'sam']);
+  const undone = { ...both, ...settlePatch(both, 'me', 'sam', false) };
+  assert.equal(undone.members.sam.paid, false);
+  assert.equal(undone.members.sam.settledAt, null);
+  assert.equal(undone.members.jo.paid, true);
+  assert.deepEqual(balances([undone], 'me').map((b) => [b.personId, b.amount]), [['sam', 10]]);
+  assert.deepEqual(settled([undone], 'me').map((b) => b.personId), ['jo']);
+});
+
+test('settled shows only the latest settle-up, so undo leaves earlier paid meals alone', () => {
+  // jo paid me back at the table for m1; I owe jo for m2 and settle it, then undo.
+  const meals = [
+    meal('m2', 'jo', 30, [['me', 12], ['jo', 18]]),
+    meal('m1', 'me', 40, [['me', 20], ['jo', 20, true]]),
+  ];
+  const jo = balances(meals, 'me')[0];
+  assert.deepEqual([jo.amount, jo.meals], [-12, ['m2']]);
+  const settle = (all, ids, paid, at) => all.map((m) => (ids.includes(m.id) ? { ...m, ...settlePatch(m, 'me', 'jo', paid, at) } : m));
+  const done = settle(meals, jo.meals, true, 50);
+  const last = settled(done, 'me');
+  assert.deepEqual(last.map((b) => [b.personId, b.amount, b.meals]), [['jo', -12, ['m2']]]);
+  const undone = settle(done, last[0].meals, false);
+  assert.deepEqual(balances(undone, 'me').map((b) => [b.personId, b.amount]), [['jo', -12]]);
+  assert.equal(undone[1].members.jo.paid, true);
+  // Two settle-ups with the same person: only the newer one shows, and undoing it brings the older one back.
+  const twice = settle(settle(meals, ['m2'], true, 50), ['m1'], true, 60);
+  assert.deepEqual(settled(twice, 'me').map((b) => [b.meals, b.at]), [[['m1'], 60]]);
+  assert.deepEqual(settled(settle(twice, ['m1'], false), 'me').map((b) => [b.meals, b.at]), [[['m2'], 50]]);
 });
 
 test('a reminder names the meals and lists my ways to get paid', () => {
@@ -180,8 +178,7 @@ test('sample meals add up and show both sides of the ledger', () => {
   }
   const b = balances(meals, 'me');
   assert.ok(b.some((x) => x.amount > 0) && b.some((x) => x.amount < 0));
-  assert.equal(whoPaysNext(meals).name, 'Jordan');
-  assert.ok(monthly(meals, 'me', 3, now).reduce((s, m) => s + m.total, 0) > 0);
+  assert.deepEqual(settled(meals, 'me'), []);
 });
 
 test('loading sample meals keeps history newest first, real meals included', () => {

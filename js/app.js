@@ -3,6 +3,7 @@
 import { hasMeal, saveMeal, wasDeleted } from './history.js';
 import { current, go, onTab, TABS } from './router.js';
 import { askCameraOnce } from './camera.js';
+import { openInvite } from './invite.js';
 import { openScanner } from './scanner.js';
 import * as group from './screens/group.js';
 import * as ledger from './screens/ledger.js';
@@ -11,7 +12,7 @@ import { openSettings } from './screens/settings.js';
 import * as split from './screens/split.js';
 import { store } from './store.js';
 import './theme.js'; // applies the saved light/dark choice and follows the phone's setting
-import { $, cls, delegate, esc, sheet, toast } from './ui.js';
+import { $, delegate, esc, toast } from './ui.js';
 
 const screens = { group, planner, split, ledger };
 
@@ -67,7 +68,6 @@ function keepFinishedMeal(s) {
   toast('Saved to your ledger', `${summary.restaurant || 'Meal'} is in your history.`, 'ok');
 }
 
-const joinUrl = (code) => `${location.origin}${location.pathname}?s=${code}`;
 // First run: a full-screen sign-in (no password). Your name is what friends see in the group,
 // and the e-Transfer email is where they send your share.
 function welcomeScreen() {
@@ -121,76 +121,6 @@ function welcomeScreen() {
   $('#welcomeName', wrap).focus();
 }
 
-async function peopleSheet() {
-  const s = store.state;
-  const url = joinUrl(s.id);
-  const { el, close } = sheet({
-    title: 'Invite your group',
-    subtitle: `${Object.keys(s.members).length} in ${s.name}`,
-    icon: 'fa-user-group',
-    body: `
-      ${store.synced ? '' : `<div class="p-2.5 rounded-2xl bg-amberWarm-100 text-amberWarm-800 text-[10px] font-semibold leading-snug">
-        <i class="fa-solid fa-triangle-exclamation"></i> Phones won't sync yet: Split is running on this device only.
-        Add your Firebase config to js/config.js (TEAM.md, Person 4). Other tabs in this browser still sync.</div>`}
-      <div class="flex flex-col items-center gap-1.5">
-        <div id="qr" class="w-44 h-44 bg-white rounded-2xl border border-gray-100 p-2 flex items-center justify-center text-[10px] text-gray-400">Loading QR…</div>
-        <p class="text-[9px] text-gray-400">Scan with the phone camera, or enter the code in Split</p>
-        <p class="font-display font-extrabold text-2xl tracking-[0.3em] text-espresso">${esc(s.id)}</p>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <button data-click="share" class="${cls.btn}"><i class="fa-solid fa-share-nodes"></i> Share link</button>
-        <button data-click="copy" class="${cls.btnGhost}"><i class="fa-regular fa-copy"></i> Copy link</button>
-      </div>
-      <div><label for="groupNameInput" class="${cls.label}">Group name</label>
-        <input id="groupNameInput" data-change="rename" value="${esc(s.name)}" maxlength="30" class="${cls.input}"></div>
-      <form data-submit="join" class="flex gap-2 items-end">
-        <div class="flex-1"><label for="joinCode" class="${cls.label}">Join another group</label>
-          <input id="joinCode" placeholder="CODE" maxlength="5" autocapitalize="characters" class="${cls.input} uppercase tracking-widest"></div>
-        <button class="px-3 py-2 rounded-xl bg-espresso text-white font-bold text-xs">Join</button>
-      </form>
-      <div class="grid grid-cols-2 gap-2">
-        <button data-click="newMeal" class="${cls.btnGhost}"><i class="fa-solid fa-rotate"></i> New meal</button>
-        <button data-click="newGroup" class="${cls.btnGhost}"><i class="fa-solid fa-plus"></i> New group</button>
-      </div>`,
-  });
-  delegate(el, {
-    share: async () => {
-      if (navigator.share) await navigator.share({ title: 'Join my Split group', text: `Join "${s.name}" on Split (code ${s.id})`, url }).catch(() => {});
-      else navigator.clipboard.writeText(url).then(() => toast('Link copied', url));
-    },
-    copy: () => navigator.clipboard.writeText(url).then(() => toast('Link copied', url)),
-    rename: (input) => input.value.trim() && store.dispatch({ type: 'session/rename', name: input.value.trim() }),
-    join: async () => {
-      const c = $('#joinCode', el).value.trim().toUpperCase();
-      if (!c) return;
-      if (await store.open(c)) { close(); toast('Joined!', `You're in ${store.state.name}.`); render(); }
-      else toast('No group with that code', 'Check the code and try again.', 'warn');
-    },
-    newMeal: () => {
-      if (!confirm('Start a new meal with the same people? This clears the plan and the receipt.')) return;
-      store.dispatch({ type: 'session/newMeal' });
-      close();
-      go('group');
-    },
-    newGroup: async () => {
-      if (!confirm('Start a brand new group?')) return;
-      await store.create();
-      close();
-      go('group');
-      toast('New group', `Code ${store.code}`);
-    },
-  });
-  try {
-    const { default: qrcode } = await import('https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.mjs');
-    const qr = qrcode(0, 'M');
-    qr.addData(url);
-    qr.make();
-    $('#qr', el).innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
-  } catch {
-    $('#qr', el).textContent = 'QR needs internet';
-  }
-}
-
 async function boot() {
   // Settings no longer takes an AI key (the team's Worker holds it). A key saved by the old Settings
   // would override the Worker with no way to change it, so drop it.
@@ -199,8 +129,8 @@ async function boot() {
   delegate(document.body, {
     tab: (el) => go(el.dataset.tab),
     scan: () => openScanner(current() === 'planner' ? 'menu' : 'receipt'),
-    people: () => store.state && peopleSheet(),
-    settings: () => openSettings({ onInvite: peopleSheet, onClose: render }),
+    people: openInvite,
+    settings: () => openSettings({ onClose: render }),
   });
   store.subscribe(renderSoon);
   onTab(show);

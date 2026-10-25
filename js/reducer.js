@@ -83,8 +83,9 @@ function normalizeSettings(st) {
 function normalizeReceipt(r) {
   const claims = {};
   for (const [itemId, who] of Object.entries(obj(r.claims))) claims[itemId] = { ...obj(who) };
+  // No tip unless the receipt printed one (tip) or someone adds one: the bill is what was paid.
   return {
-    restaurant: '', subtotal: 0, discount: 0, tax: 0, serviceCharge: 0, tip: 0, tipPct: DEFAULT_SETTINGS.tipPct,
+    restaurant: '', subtotal: 0, discount: 0, tax: 0, serviceCharge: 0, tip: 0, tipPct: 0,
     total: 0, currency: 'CAD', notes: '', demo: false, scannedAt: null, payerId: null, finalizedAt: null, summary: null,
     ...r, items: arr(r.items), warnings: arr(r.warnings), claims, paid: { ...obj(r.paid) }, evenSplit: r.evenSplit === true,
   };
@@ -239,7 +240,8 @@ const handlers = {
 export function reduce(state, action) {
   const handler = handlers[action.type];
   if (!handler) throw new Error(`Unknown action: ${action.type}`);
-  const s = structuredClone(normalize(state));
+  // A JSON copy instead of structuredClone, which older iPhone Safari (before iOS 15.4) doesn't have.
+  const s = JSON.parse(JSON.stringify(normalize(state)));
   handler(s, action);
   s.version += 1;
   return s;

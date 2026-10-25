@@ -8,7 +8,7 @@ import { ask, askJson, demo, demoMode, round2 } from './client.js';
 const PLACE = {
   type: 'object',
   additionalProperties: false,
-  required: ['name', 'address', 'cuisine', 'priceLevel', 'estCostPerPerson', 'distanceKm', 'dietOptions', 'rating', 'why', 'sourceUrl'],
+  required: ['name', 'address', 'cuisine', 'priceLevel', 'estCostPerPerson', 'distanceKm', 'dietOptions', 'rating', 'why', 'dishes', 'sourceUrl'],
   properties: {
     name: { type: 'string' },
     address: { type: 'string' },
@@ -19,6 +19,7 @@ const PLACE = {
     dietOptions: { type: 'array', items: { type: 'string', enum: DIETS } },
     rating: { type: 'number' },
     why: { type: 'string' },
+    dishes: { type: 'array', items: { type: 'string' } },
     sourceUrl: { type: 'string' },
   },
 };
@@ -28,7 +29,8 @@ const RESULTS = { type: 'object', additionalProperties: false, required: ['place
 const FIELDS = `For each place give: name; street address; main cuisine in one or two words; priceLevel 1-4;
 estCostPerPerson, a typical main plus a drink before tax and tip in local currency, from menus or reviews you found;
 distanceKm from the centre of the area; dietOptions you have evidence for (menu labels, the restaurant's site, reviews);
-rating out of 5 (0 if unknown); why, one short sentence on why it suits this group; sourceUrl, the page you used.
+rating out of 5 (0 if unknown); why, one short sentence on why it suits this group; dishes, 2 or 3 signature
+dishes people order there, as short dish names (e.g. "pho tai"); sourceUrl, the page you used.
 Only include places that are open for business now. Give the source page's link for each place if you have it.`;
 
 const describe = (m) => {

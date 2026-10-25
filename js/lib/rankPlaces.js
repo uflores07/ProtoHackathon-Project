@@ -53,7 +53,7 @@ export const dietLabel = (d) => String(d).replaceAll('_', '-');
 const num = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const cents = (n) => Math.round(n * 100);
 const dollars = (n) => `$${Number.isInteger(n) ? n : n.toFixed(2)}`;
-const and = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+const and = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const nameOf = (m) => m.name || 'Someone';
 
 function failures(place, m) {

@@ -26,6 +26,7 @@ test('normalize repairs what Firebase does to empty arrays and objects', () => {
   assert.equal(s.plan.settings.tipPct, 18);
   assert.deepEqual(s.plan.menu, []);
   assert.deepEqual(s.receipt.items, [{ id: 'r1' }]);
+  assert.equal(s.receipt.tipPct, 0); // the planner's 18% is an estimate, never added to a receipt
   assert.deepEqual(s.receipt.claims, {});
 });
 

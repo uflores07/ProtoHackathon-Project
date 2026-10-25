@@ -45,8 +45,7 @@ export function mount(root) {
         evenSplit: !!opts.even,
         payerId: store.me.id,
         printedTip: r.tip, // so the tip card can say a tip came from the receipt
-        // A service charge is already the tip, so nobody double-tips by default.
-        tipPct: r.serviceCharge > 0 ? 0 : s.plan.settings.tipPct,
+        tipPct: 0, // only the receipt's own tip, never the planner's estimate
         claims: prefillClaims(r.items, Object.values(s.live.items)),
       },
     });
@@ -60,7 +59,7 @@ export function mount(root) {
     scanReceipt: () => openScanner('receipt'),
     manual: () => {
       const s = store.state;
-      store.dispatch({ type: 'receipt/set', receipt: { restaurant: s.plan.restaurant?.name ?? '', items: [], payerId: store.me.id, tipPct: s.plan.settings.tipPct, claims: {} } });
+      store.dispatch({ type: 'receipt/set', receipt: { restaurant: s.plan.restaurant?.name ?? '', items: [], payerId: store.me.id, tipPct: 0, claims: {} } });
     },
     evenMode: (b) => store.dispatch({ type: 'receipt/update', patch: { evenSplit: b.dataset.on === '1' } }),
     addGuest: () => guestSheet(),
@@ -75,6 +74,11 @@ export function mount(root) {
       tipMode = b.dataset.mode;
       if (tipMode === 'pct' && store.state?.receipt?.tip > 0) store.dispatch({ type: 'receipt/update', patch: { tip: 0 } });
       else if (store.state) render(root, store.state);
+    },
+    noTip: () => {
+      const r = store.state?.receipt;
+      // Already no tip: don't clear anyone's paid mark for nothing.
+      if (r && (r.tip > 0 || r.tipPct > 0)) store.dispatch({ type: 'receipt/update', patch: { tip: 0, tipPct: 0 } });
     },
     tipPct: (b) => store.dispatch({ type: 'receipt/update', patch: { tipPct: Number(b.dataset.pct), tip: 0 } }),
     tipPctCustom: (input) => {
@@ -290,9 +294,10 @@ function itemRow(s, it, amIn, even = false) {
 function tipCard(s, split) {
   const r = s.receipt;
   const fixed = r.tip > 0;
+  const none = !split.totals.tip;
   const mode = fixed ? 'amount' : tipMode;
   const pct = Number(r.tipPct) || 0;
-  const preset = TIPS.includes(pct);
+  const preset = pct === 0 || TIPS.includes(pct); // 0 is the "No tip" button, not a custom value
   const modeBtn = (m, icon, label) => `<button data-click="tipMode" data-mode="${m}" aria-pressed="${mode === m}" class="py-1.5 rounded-xl text-[10px] font-bold transition-all ${mode === m ? 'bg-white text-terracotta-600 shadow-xs' : 'text-gray-500 hover:text-espresso'}"><i class="fa-solid ${icon} mr-1"></i> ${label}</button>`;
   const tipBtn = (p) => {
     const on = !fixed && pct === p;
@@ -313,7 +318,8 @@ function tipCard(s, split) {
         This tip (${money(r.tip)}) came from the receipt. Change it below if it's not right.</p>` : ''}
       ${r.serviceCharge > 0 ? `<p class="p-2 rounded-2xl bg-sky-50 text-sky-800 text-[10px] font-semibold leading-snug"><i class="fa-solid fa-circle-info"></i>
         Service charge (${money(r.serviceCharge)}) already on the bill, so no extra tip by default.</p>` : ''}
-      <div class="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-2xl" role="group" aria-label="Set the tip as">
+      <button data-click="noTip" aria-pressed="${none}" class="w-full py-2 rounded-xl text-[10px] font-bold ${none ? 'bg-terracotta-500 text-white' : 'bg-gray-100 text-espresso'}"><i class="fa-solid fa-ban mr-1"></i> No tip</button>
+      <div class="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-2xl" role="group" aria-label="Or add a tip as">
         ${modeBtn('pct', 'fa-percent', 'Percent')}${modeBtn('amount', 'fa-dollar-sign', 'Dollar amount')}
       </div>
       ${mode === 'pct' ? `
@@ -329,7 +335,7 @@ function tipCard(s, split) {
             <input id="tipAmount" data-change="tipAmount" ${moneyAttrs} min="0" value="${toDollars(split.totals.tip).toFixed(2)}" placeholder="0.00" class="${cls.input} pl-5">
           </div>
         </div>`}
-      <p class="p-2 rounded-2xl bg-orange-50 border border-orange-100 text-xs font-bold text-espresso">${esc(explainTip(r))}</p>
+      <p class="p-2 rounded-2xl bg-orange-50 border border-orange-100 text-xs font-bold text-espresso">${none ? 'No tip added. Only a tip on the receipt, or one you add here, is included.' : esc(explainTip(r))}</p>
       <p class="${cls.sub}">${r.evenSplit ? 'Tip is on the food before tax and discounts, split evenly with the rest of the bill.' : 'Tip is on the food before tax and discounts, and everyone tips on what they had.'}</p>
       <div class="border-t border-gray-100 pt-2.5 flex flex-col gap-1.5">
         <h3 class="${cls.title}">Who paid the bill?</h3>
@@ -630,12 +636,10 @@ function billSheet() {
   delegate(el, {
     save: () => {
       const val = (id) => Math.max(0, parseMoney(el.querySelector(id).value) ?? 0);
-      const serviceCharge = val('#billService');
-      // A new service charge is already the tip, so nobody double-tips (same as a scan).
-      const noTip = serviceCharge > 0 && !(store.state.receipt?.serviceCharge > 0) ? { tipPct: 0, tip: 0 } : {};
+      // The tip isn't touched here: there's none by default, and one on the receipt or added on purpose stays.
       store.dispatch({ type: 'receipt/update', patch: {
         restaurant: el.querySelector('#billName').value.trim(),
-        tax: val('#billTax'), serviceCharge, discount: val('#billDiscount'), ...noTip,
+        tax: val('#billTax'), serviceCharge: val('#billService'), discount: val('#billDiscount'),
       } });
       close();
     },
